@@ -1,0 +1,308 @@
+/* ===== 经典主题：传统中文排印 ===== */
+/* 通过覆盖字体变量实现：正文与标题宋体 / 引文楷体 / 代码等宽 */
+
+.theme-classic {
+  --font-size: 18px;
+  --line-height: 1.75rem;
+  --font-body: "Source Serif Pro", "Noto Serif SC", serif;
+  --fore-color: rgb(51,51,51);
+  --link-color: #0645ad;
+  --border-color: #999;
+  --gray-bg: #f2f2ef;
+}
+
+/* view.dom 与 .cm-editor 无自有语义类，需借助 .ProseMirror / .cm-editor 定位 */
+.theme-classic .ProseMirror,
+.theme-classic .cm-editor {
+  padding-top: var(--line-height);
+  padding-bottom: var(--line-height);
+}
+
+.theme-classic strong,
+.theme-classic b {
+  color: var(--strong-color);
+  font-weight: 700;
+}
+
+.theme-classic em,
+.theme-classic i {
+  font-style: italic;
+}
+
+/* ProseMirror 运行时注入的选中态类，必须保留 */
+.theme-classic img.ProseMirror-selectednode {
+  outline: 2px solid color-mix(in srgb, var(--fore-color) 60%, transparent);
+}
+
+/* hr 的选中类在包壳 div 上（上游 toDOM: ["div", ["hr"]]，schema.ts 已补
+   md-editor-horizontal-rule 类），经包壳子选择器定位 hr 补描边 */
+.theme-classic .md-editor-horizontal-rule.ProseMirror-selectednode > hr {
+  outline: 2px solid color-mix(in srgb, var(--fore-color) 60%, transparent);
+}
+
+/* 标题：继承全局正文字体 */
+.theme-classic h1,
+.theme-classic h2,
+.theme-classic h3,
+.theme-classic h4,
+.theme-classic h5,
+.theme-classic h6 {
+  font-weight: 700;
+  line-height: var(--line-height);
+  position: relative;
+  box-sizing: border-box;
+  margin-bottom: var(--line-height);
+}
+.theme-classic h1 {
+  font-size: 26px;
+}
+.theme-classic h2 {
+  font-size: 22px;
+}
+.theme-classic h3 {
+  font-size: 20px;
+}
+.theme-classic h4 {
+  font-size: 18px;
+}
+.theme-classic h5,
+.theme-classic h6 {
+  font-size: 16px;
+}
+.theme-classic h6 {
+  font-weight: normal;
+}
+
+/* 源码模式标题不做删除线等装饰 */
+.theme-classic .cm-line .ͼ7 {
+  text-decoration: none;
+}
+
+/* ===== 内容排版 ===== */
+
+.theme-classic a {
+  color: var(--link-color);
+}
+.theme-classic a>code,
+.theme-classic a>pre,
+.theme-classic a>kbd {
+  color: var(--link-color);
+}
+
+.theme-classic a:hover {
+  text-decoration: underline;
+}
+
+.theme-classic abbr {
+  cursor: help
+}
+
+.theme-classic cite {
+  font-style: italic
+}
+
+.theme-classic hr {
+  background: var(--border-color);
+  border: none;
+  display: block;
+  height: 1px;
+  margin-top: calc(var(--line-height) - 1px);
+  margin-bottom: var(--line-height);
+}
+
+.theme-classic ins {
+  background-color: lime;
+  text-decoration: none
+}
+
+.theme-classic mark {
+  background-color: #ff0
+}
+
+.theme-classic small {
+  font-size: 0.8em
+}
+
+.theme-classic sub, .theme-classic sup {
+  font-size: 0.8em
+}
+
+.theme-classic sub {
+  vertical-align: sub
+}
+
+.theme-classic sup {
+  vertical-align: super
+}
+
+.theme-classic p, .theme-classic dl, .theme-classic ol, .theme-classic ul, .theme-classic blockquote, .theme-classic pre, .theme-classic table {
+  margin-bottom: var(--line-height);
+}
+
+.theme-classic p:last-child, .theme-classic dl:last-child, .theme-classic ol:last-child, .theme-classic ul:last-child, .theme-classic blockquote:last-child, .theme-classic pre:last-child, .theme-classic table:last-child {
+  margin-bottom: 0
+}
+
+.theme-classic p:empty {
+  display: none
+}
+
+.theme-classic dd {
+  margin-left: var(--line-height);
+}
+
+.theme-classic ol p, .theme-classic ul p {
+  margin-bottom: 0;
+}
+.theme-classic ol, .theme-classic ul {
+  list-style-position: outside;
+  margin-left: var(--line-height)
+}
+
+.theme-classic ol {
+  list-style-type: decimal
+}
+
+.theme-classic ol ol {
+  list-style-type: lower-alpha
+}
+
+.theme-classic ol ol ol {
+  list-style-type: lower-roman
+}
+
+.theme-classic ol ol ol ol {
+  list-style-type: lower-greek
+}
+
+.theme-classic ol ol ol ol ol {
+  list-style-type: decimal
+}
+
+.theme-classic ol ol ol ol ol ol {
+  list-style-type: lower-alpha
+}
+
+.theme-classic ul {
+  list-style-type: disc
+}
+
+.theme-classic ul ul {
+  list-style-type: circle
+}
+
+.theme-classic ul ul ul {
+  list-style-type: square
+}
+
+.theme-classic ul ul ul ul {
+  list-style-type: circle
+}
+
+.theme-classic ul ul ul ul ul {
+  list-style-type: disc
+}
+
+.theme-classic ul ul ul ul ul ul {
+  list-style-type: circle
+}
+
+/* 引文：楷体 */
+.theme-classic blockquote {
+  border-left: 4px solid var(--border-color);
+  font-family: var(--font-quote);
+  padding: var(--half-line-height);
+}
+
+.theme-classic blockquote p {
+  margin-bottom: 0
+}
+
+.theme-classic code, .theme-classic kbd, .theme-classic samp, .theme-classic pre {
+  -moz-osx-font-smoothing: auto;
+  -webkit-font-smoothing: auto;
+  background-color: var(--gray-bg);
+  color: var(--fore-color);
+  font-size: 0.9em;
+  line-height: var(--line-height);
+  font-family: var(--font-code);
+}
+
+.theme-classic code, .theme-classic kbd, .theme-classic samp {
+  border-radius: 3px;
+  /* 同 default.css：行内 code 用自然行高，避免字体度量并集撑破 28px 节奏 */
+  line-height: normal;
+  padding: 0.1em 0.4em 0.2em;
+  vertical-align: baseline
+}
+.theme-classic pre code {
+  padding: 0;
+}
+
+.theme-classic pre {
+  overflow: auto;
+  padding: var(--line-height);
+}
+
+/* h1/h2 行高比率过紧（28/26、28/22）且行内 code 为 0.9em，
+   normal 的内容盒装不进 strut，保留显式行高 */
+.theme-classic h1 code, .theme-classic h1 samp,
+.theme-classic h2 code, .theme-classic h2 samp {
+  line-height: var(--line-height)
+}
+.theme-classic pre code {
+  background: none;
+  font-size: 1em;
+  line-height: 1em
+}
+
+.theme-classic figure {
+  margin-bottom: var(--line-height);
+  text-align: center
+}
+
+.theme-classic figure:first-child {
+  margin-top: 0
+}
+
+.theme-classic figure:last-child {
+  margin-bottom: 0
+}
+
+.theme-classic figcaption {
+  font-size: 0.8em;
+  /* 行高为绝对值 28px，图注本身占整行；去掉旧 0.875em 间距（非 28 倍数）避免 figure 后内容错位 */
+  margin-top: 0
+}
+
+.theme-classic table {
+  width: 100%
+}
+
+.theme-classic table pre {
+  white-space: pre-wrap
+}
+
+.theme-classic th, .theme-classic td {
+  font-size: 1em;
+  padding: calc(var(--line-height) / 4);
+  /* 每格画底：相邻横线不双线，末行自然形成底外框 */
+  box-shadow: inset 0 -1px var(--border-color);
+}
+/* 首行补顶线（上外框不能画在 table 上，会被单元格不透明背景盖住） */
+.theme-classic thead tr:first-child th,
+.theme-classic thead tr:first-child td {
+  box-shadow: inset 0 1px var(--border-color), inset 0 -1px var(--border-color);
+}
+
+.theme-classic thead tr, .theme-classic tfoot tr {
+  background-color: var(--gray-bg)
+}
+
+.theme-classic thead th code, .theme-classic thead td code, .theme-classic tfoot th code, .theme-classic tfoot td code {
+  background-color: #fff
+}
+
+.theme-classic tbody tr {
+  background-color: #fff
+}

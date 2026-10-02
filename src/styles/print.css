@@ -1,0 +1,55 @@
+/* 打印样式：隐藏编辑器专用 UI，仅输出文档内容 */
+@media print {
+  /* 工具栏（sticky 顶栏） */
+  .md-controls {
+    display: none !important;
+  }
+
+  /* 块级左侧悬浮菜单（标题/段落切换 + 预览块删除，decoration widget） */
+  .md-editor-block-menu {
+    display: none !important;
+  }
+
+  /* 代码块复制按钮 */
+  .md-editor-code-block-copy {
+    display: none !important;
+  }
+
+  /* 预览块全屏切换按钮（图本身保留） */
+  .md-editor-preview-button {
+    display: none !important;
+  }
+
+  /* 对话框（图片插入等，正常打印时不应出现，保险处理） */
+  .md-editor-dialog {
+    display: none !important;
+  }
+
+  /* 占位提示（空文档时仅打印实际内容） */
+  .md-editor-placeholder-block::before {
+    content: none !important;
+  }
+
+  /* 错误类预览：raw 预览解析失败提示、预览渲染失败提示 */
+  .md-editor-raw-preview-body.md-editor-raw-preview-error,
+  .md-editor-preview-error {
+    display: none !important;
+  }
+
+  /* 图片/节点选中态描边 */
+  .ProseMirror-selectednode {
+    outline: none !important;
+  }
+
+  /* 打印排版：去掉屏幕视口高度限制，交给分页 */
+  body {
+    min-height: auto;
+    background: none;
+  }
+  .md-editor {
+    height: auto;
+  }
+  .ProseMirror {
+    height: auto;
+  }
+}

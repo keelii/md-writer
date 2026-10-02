@@ -1,0 +1,59 @@
+/* 标题/段落类型切换菜单：定位/显隐由核心 .md-editor-block-menu 提供
+   （block-menu.css），此处只定义切换按钮与下拉面板样式 */
+.md-editor-heading-menu-toggle {
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  color: #ccc;
+  font: inherit;
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.md-editor-heading-menu-toggle:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: inherit;
+}
+.md-editor-heading-menu-panel {
+  position: absolute;
+  font-size: 12px;
+  top: 100%;
+  right: 0.5em;
+  min-width: 4em;
+  margin-top: 4px;
+  padding: 4px;
+  border-radius: 4px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  display: none;
+  z-index: 30;
+}
+.md-editor-heading-menu.md-editor-block-menu-open .md-editor-heading-menu-panel {
+  display: block;
+}
+.md-editor-heading-menu-item {
+  display: block;
+  width: 100%;
+  padding: 2px 10px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: right;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.md-editor-heading-menu-item:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+.md-editor-heading-menu-item.md-editor-heading-menu-active {
+  color: #2563eb;
+  font-weight: 600;
+}
+.md-editor-heading-menu-separator {
+  margin: 4px 0;
+  border-top: 1px solid #e5e7eb;
+}

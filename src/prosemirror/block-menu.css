@@ -1,0 +1,32 @@
+/* 块级悬浮菜单核心：定位在块左侧（-2.5rem 处的 2rem 宽轨道），默认隐藏，
+   hover 到来源块 / 菜单自身 / 展开态 / 光标选区位于块内时显示。
+   定位用「静态位置 + 负 margin」：widget 设 position:absolute 且不指定 left/top，
+   静态位置即块左上角，不依赖任何 positioned 祖先，
+   锚在块内（heading/paragraph）与锚在块前（atom 预览块）两种形态几何一致。 */
+.md-editor-block-menu {
+  position: absolute;
+  margin-left: -2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: end;
+  font-size: var(--font-size);
+  font-weight: normal;
+  width: 2rem;
+  height: var(--line-height);
+  line-height: var(--line-height);
+  padding-right: 0.5rem;
+  visibility: hidden;
+}
+/* 锚在块内：菜单是来源块的子元素 */
+.md-editor-block-menu-source:hover > .md-editor-block-menu,
+/* 锚在块前：菜单是来源块的前置兄弟，:has 向后探测来源块 hover */
+.md-editor-block-menu:has(+ .md-editor-block-menu-source:hover),
+/* 光标/选区位于块内：来源块由 block-menu.ts 打 -active 类（block 边界严格不
+   计，避免相邻块同时点亮），无需 hover 常显——hover 之外的主要展示形态 */
+.md-editor-block-menu-source-active > .md-editor-block-menu,
+.md-editor-block-menu:has(+ .md-editor-block-menu-source-active),
+/* 悬停菜单自身（块与菜单之间的空隙不丢显隐）/ 展开态（下拉面板打开） */
+.md-editor-block-menu:hover,
+.md-editor-block-menu.md-editor-block-menu-open {
+  visibility: visible;
+}

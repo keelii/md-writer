@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../src/styles/reset.css" />
+<link rel="stylesheet" href="../src/styles/layout.css" />
+<link rel="stylesheet" href="../src/styles/themes/default.css" />
+<link rel="stylesheet" href="../src/styles/themes/classic.css" />
+<style>
+  body { padding: 40px }
+</style>
+</head>
+<body>
+<div class="md-editor theme-default" id="theme-default-box">
+  <div class="ProseMirror">
+    <p id="d1">plain text 中文 baseline xyz</p>
+    <p id="d2">plain <code>inline code</code> text</p>
+    <p id="d3">中文混排 <code>行内代码</code> 的段落行</p>
+    <p id="d4">多个 <code>code</code> 与 <kbd>Ctrl</kbd> 与 <samp>samp</samp> 共存</p>
+    <h1 id="d5">H1 <code>code</code> inside</h1>
+    <h2 id="d6">H2 <code>code</code> inside</h2>
+    <h3 id="d7">H3 <code>code</code> inside</h3>
+    <pre id="d8"><code>block line 1
+block line 2
+block line 3</code></pre>
+  </div>
+</div>
+<div class="md-editor theme-classic" id="theme-classic-box">
+  <div class="ProseMirror">
+    <p id="c1">classic 正文 <code>行内代码</code> 混排</p>
+    <h1 id="c2">C-H1 <code>code</code></h1>
+    <h2 id="c3">C-H2 <code>code</code></h2>
+    <h3 id="c4">C-H3 <code>code</code></h3>
+    <pre id="c5"><code>classic block 1
+classic block 2</code></pre>
+  </div>
+</div>
+<script>
+  var expect = {
+    d1: [28, "正文纯文本"], d2: [28, "正文+code"], d3: [28, "中文行+code"],
+    d4: [28, "code+kbd+samp"], d5: [28, "H1+code(显式行高,容差1)"], d6: [28, "H2+code"],
+    d7: [28, "H3+code"], d8: [84, "pre code 3行=84"],
+    c1: [28, "classic 正文+code"], c2: [28, "classic H1+code(容差1)"], c3: [28, "classic H2+code(容差1)"],
+    c4: [28, "classic H3+code"], c5: [56, "classic pre 2行=56"]
+  }
+  var out = {}
+  Object.keys(expect).forEach(function (id) {
+    var h = document.getElementById(id).getBoundingClientRect().height
+    var e = expect[id][0]
+    out[expect[id][1] + " [" + id + "]"] = h + "px" + (h === e ? " ✓" : (h === e + 1 ? " (+1 容差)" : " ✗ expect " + e))
+  })
+  document.body.innerHTML = "<pre id=\"result\">" + JSON.stringify(out, null, 2) + "</pre>"
+</script>
+</body>
+</html>

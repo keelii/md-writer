@@ -1,0 +1,21 @@
+meta.json
+*.min.*
+.joycode
+.vscode
+dist
+.idea
+*.iml
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+
+# 测试运行时输出的临时文件
+test/.*-output.txt
+test/.reg-*.txt
+test/.build-*.txt
+test/.review-*.txt
+test/.rev2-*.txt
+test/.debug-*
+

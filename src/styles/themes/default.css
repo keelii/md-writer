@@ -1,0 +1,377 @@
+/* ===== 默认主题 ===== */
+/* 直接消费全局变量（定义于 layout.css body），无覆盖项 */
+.theme-default {
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+}
+
+/* view.dom 与 .cm-editor 无自有语义类，需借助 .ProseMirror / .cm-editor 定位 */
+.theme-default>.ProseMirror,
+.theme-default>.cm-editor {
+  padding-top: var(--line-height);
+  padding-bottom: var(--line-height);
+}
+.theme-default>.ProseMirror>.md-editor-code-block-wrap {
+  margin-bottom: var(--line-height);
+}
+
+.theme-default strong,
+.theme-default b {
+  color: var(--strong-color);
+  font-weight: 700;
+}
+
+.theme-default em,
+.theme-default i {
+  font-style: italic;
+}
+
+.theme-default img {
+  max-width: 100%;
+  vertical-align: text-bottom;
+}
+
+/* ProseMirror 运行时注入的选中态类，必须保留 */
+.theme-default .ProseMirror-selectednode {
+  outline: 2px solid var(--link-color);
+}
+
+.theme-default h1,
+.theme-default h2,
+.theme-default h3,
+.theme-default h4,
+.theme-default h5,
+.theme-default h6 {
+  font-weight: 700;
+  line-height: var(--line-height);
+  position: relative;
+  box-sizing: border-box;
+  margin-bottom: var(--line-height);
+}
+.theme-default h1 { font-size: 28px; }
+.theme-default h2 { font-size: 20px; }
+.theme-default h3 { font-size: 18px; }
+.theme-default h4 { font-size: 16px; }
+.theme-default h5 { font-size: 14px; }
+.theme-default h6 { font-size: 12px; }
+
+/* 源码模式标题不做删除线等装饰 */
+.theme-default .cm-line .ͼ7 {
+  text-decoration: none;
+}
+
+/* ===== 内容排版 ===== */
+
+.theme-default a {
+  color: var(--link-color);
+}
+.theme-default a>code,
+.theme-default a>pre,
+.theme-default a>kbd {
+  color: var(--link-color);
+}
+
+.theme-default abbr {
+  cursor: help
+}
+
+.theme-default cite {
+  font-style: italic
+}
+
+.theme-default .md-editor-horizontal-rule {
+  height: var(--line-height);
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--line-height);
+}
+.theme-default hr {
+  width: 100%;
+  border: none;
+  display: block;
+  border-bottom: 1px solid var(--border-color);
+  height: 0;
+  overflow: hidden;
+  margin: 0;
+}
+
+.theme-default ins {
+  background-color: lime;
+  text-decoration: none
+}
+
+.theme-default mark {
+  background-color: #ff0
+}
+
+.theme-default small {
+  font-size: 0.8em
+}
+
+.theme-default sub, .theme-default sup {
+  font-size: 0.8em;
+  /* 行高归零，避免 vertical-align 抬升后的行盒把整行撑高 */
+  line-height: 0
+}
+
+.theme-default sub {
+  vertical-align: sub
+}
+
+.theme-default sup {
+  vertical-align: super
+}
+
+.theme-default p, .theme-default dl, .theme-default ol, .theme-default ul, .theme-default blockquote, .theme-default pre, .theme-default table {
+  margin-bottom: var(--line-height);
+}
+
+.theme-default p:last-child, .theme-default dl:last-child, .theme-default ol:last-child, .theme-default ul:last-child, .theme-default blockquote:last-child, .theme-default pre:last-child, .theme-default table:last-child {
+  margin-bottom: 0
+}
+
+.theme-default p:empty {
+  display: none
+}
+
+.theme-default dd {
+  padding-left: var(--line-height);
+}
+
+.theme-default ol p, .theme-default ul p {
+  margin-bottom: 0;
+}
+.theme-default ol, .theme-default ul {
+  list-style-position: outside;
+  padding-left: var(--line-height)
+}
+
+.theme-default ol {
+  list-style-type: decimal
+}
+
+.theme-default ol ol {
+  list-style-type: lower-alpha
+}
+
+.theme-default ol ol ol {
+  list-style-type: lower-roman
+}
+
+.theme-default ol ol ol ol {
+  list-style-type: lower-greek
+}
+
+.theme-default ol ol ol ol ol {
+  list-style-type: decimal
+}
+
+.theme-default ol ol ol ol ol ol {
+  list-style-type: lower-alpha
+}
+
+.theme-default ul {
+  list-style-type: disc
+}
+
+.theme-default ul ul {
+  list-style-type: circle
+}
+
+.theme-default ul ul ul {
+  list-style-type: square
+}
+
+.theme-default ul ul ul ul {
+  list-style-type: circle
+}
+
+.theme-default ul ul ul ul ul {
+  list-style-type: disc
+}
+
+.theme-default ul ul ul ul ul ul {
+  list-style-type: circle
+}
+
+.theme-default blockquote {
+  border-left: 4px solid var(--border-color);
+  font-family: var(--font-quote);
+  padding: var(--half-line-height);
+}
+
+.theme-default blockquote p {
+  margin-bottom: 0
+}
+
+.theme-default code, .theme-default kbd, .theme-default samp, .theme-default pre {
+  -moz-osx-font-smoothing: auto;
+  -webkit-font-smoothing: auto;
+  background-color: var(--gray-bg);
+  color: var(--fore-color);
+  line-height: var(--line-height);
+  font-family: var(--font-code);
+}
+.theme-default .md-editor-code-block-wrap pre {
+  background-color: transparent;
+}
+.theme-default table code {
+  padding: 0em 0.4em 0em;
+}
+.theme-default p code, .theme-default p kbd, .theme-default p samp, .theme-default p pre {
+  /*font-size: 0.9em;*/
+  background: var(--gray-bg);
+}
+
+.theme-default code, .theme-default kbd, .theme-default samp {
+  border-radius: 3px;
+  /* 行内混排不同字体时，各行内盒 leading box 相对 baseline 的上下沿不同，
+     显式 line-height 会让行盒取并集而超出 28px 节奏（约 +1~2px）；
+     normal 使 code 的自然内容盒完全落在 strut 行盒内，行高保持 28px */
+  line-height: normal;
+  padding: 0.1em 0.4em 0.2em;
+  vertical-align: baseline
+}
+
+/* h1 字号:行高 = 28:28（1:1），normal 的内容盒装不进 strut，保留显式行高 */
+.theme-default h1 code, .theme-default h1 samp {
+  line-height: var(--line-height)
+}
+
+/* kbd 按键样式（类 Stack Overflow 键帽观感） */
+.theme-default kbd {
+  background-color: var(--gray-bg);
+  border: 1px solid var(--border-color);
+  border-bottom: 2px solid color-mix(in srgb, var(--fore-color) 25%, var(--border-color));
+  border-radius: 4px;
+  display: inline-block;
+  font-family: var(--font-code);
+  font-size: 0.85em;
+  line-height: 1;
+  padding: 0.18em 0.45em 0.22em;
+  white-space: nowrap;
+}
+
+.theme-default pre code {
+  padding: 0;
+}
+
+.theme-default pre {
+  overflow: auto;
+  /*padding: var(--line-height);*/
+  /*background-color: var(--gray-bg);*/
+}
+
+.theme-default pre code {
+  background: none;
+  font-size: 1em;
+  line-height: 1em
+}
+
+/* ===== 代码块语法高亮 token 配色（highlight.js class 约定） =====
+   只定义前景色，不改动代码块的背景/边框/排版（由 code-block-copy.css 管理）。 */
+.theme-default .hljs-keyword,
+.theme-default .hljs-selector-tag,
+.theme-default .hljs-built_in,
+.theme-default .hljs-name {
+  color: #d73a49;
+}
+.theme-default .hljs-string,
+.theme-default .hljs-regexp,
+.theme-default .hljs-symbol,
+.theme-default .hljs-bullet {
+  color: #032f62;
+}
+.theme-default .hljs-title,
+.theme-default .hljs-title.class_,
+.theme-default .hljs-title.function_ {
+  color: #6f42c1;
+}
+.theme-default .hljs-attr,
+.theme-default .hljs-attribute,
+.theme-default .hljs-variable,
+.theme-default .hljs-template-variable,
+.theme-default .hljs-type {
+  color: #005cc5;
+}
+.theme-default .hljs-number,
+.theme-default .hljs-literal {
+  color: #005cc5;
+}
+.theme-default .hljs-comment,
+.theme-default .hljs-quote {
+  color: #6a737d;
+  font-style: italic;
+}
+.theme-default .hljs-meta,
+.theme-default .hljs-doctag,
+.theme-default .hljs-section {
+  color: #6a737d;
+}
+.theme-default .hljs-tag {
+  color: #22863a;
+}
+.theme-default .hljs-addition {
+  color: #22863a;
+}
+.theme-default .hljs-deletion {
+  color: #b31d28;
+}
+.theme-default .hljs-emphasis {
+  font-style: italic;
+}
+.theme-default .hljs-strong {
+  font-weight: 600;
+}
+
+.theme-default figure {
+  margin-bottom: var(--line-height);
+  text-align: center
+}
+
+.theme-default figure:first-child {
+  margin-top: 0
+}
+
+.theme-default figure:last-child {
+  margin-bottom: 0
+}
+
+.theme-default figcaption {
+  font-size: 0.8em;
+  /* 行高为绝对值 28px，图注本身占整行；去掉旧 0.875em 间距（非 28 倍数）避免 figure 后内容错位 */
+  margin-top: 0
+}
+
+.theme-default table {
+  width: 100%;
+  font-size: var(--font-size-small);
+}
+
+.theme-default table pre {
+  white-space: pre-wrap
+}
+.theme-default th {
+  text-align: left;
+  white-space: nowrap;
+}
+.theme-default th, .theme-default td {
+  font-size: 1em;
+  padding:  0 calc(var(--line-height) / 4);
+  /* 每格画底：相邻横线不双线，末行自然形成底外框 */
+  box-shadow: inset 0 -1px var(--border-color);
+}
+.theme-default thead tr:first-child th:last-child {
+  /*box-shadow: inset 0 1px var(--border-color), inset 0 -1px var(--border-color);*/
+}
+.theme-default thead tr:first-child td {
+  box-shadow: inset 0 1px var(--border-color), inset 0 -1px var(--border-color);
+}
+
+.theme-default thead tr, .theme-default tfoot tr {
+  background-color: var(--gray-bg)
+}
+
+.theme-default thead th code, .theme-default thead td code, .theme-default tfoot th code, .theme-default tfoot td code {
+  background-color: #fff
+}
+

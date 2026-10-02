@@ -1,0 +1,11 @@
+.md-editor-raw-iframe-preview {
+  width: 100%;
+  /* 6 × --line-height 韵律（iframe 实际高度由内容的 height 属性决定，此处仅兜底） */
+  min-height: calc(var(--line-height) * 6);
+}
+.md-editor-raw-iframe-preview iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: #fff;
+}

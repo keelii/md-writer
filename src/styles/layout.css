@@ -1,0 +1,112 @@
+/* 页面布局：节奏变量、内容宽度与编辑器容器 */
+body {
+  --font-size: 16px;
+  --font-size-small: 14px;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  --font-quote: "Crimson Text", "KaiTi", "楷体", "楷体_GB2312", "STKaiti", "华文楷体", Georgia, "Times New Roman", serif;
+  --font-code: "Latin Modern Mono", "SF Mono", "Monaco", "Consolas", monospace;
+
+  --half-line-height: 0.875rem;
+  --line-height: 1.75rem;
+  --line-height-2x: 3.5rem;
+
+  --fore-color: rgb(51,51,51);
+  --link-color: #2478ff;
+  --strong-color: rgb(26,26,26);
+  --border-color: #e6e6e6;
+  --gray-bg: rgba(242,242,242);
+  --gray-bg-weak: rgba(242,242,242, 0.3);
+  --max-content-width: 55em;
+
+  min-height: 100vh;
+}
+
+.md-editor {
+  position: relative;
+  box-sizing: border-box;
+  height: 100%;
+
+  color: var(--fore-color);
+  font-size: var(--font-size);
+  line-height: var(--line-height);
+  font-family: var(--font-body);
+}
+
+/* .md-controls 现为 .md-editor 的子元素（由库渲染，宽度已受 .md-editor 约束）；
+   保留 .inner 约束以兼容宿主自建工具栏（formatBarRoot/viewBarRoot 外部提供时） */
+.ProseMirror,
+.md-editor-source-host,
+.md-controls .inner {
+  box-sizing: border-box;
+  margin: 0 auto;
+  max-width: var(--max-content-width);
+}
+
+/* ProseMirror 编辑器容器 */
+.ProseMirror {
+  height: 100%;
+  /* 保持空格原样（否则浏览器会把连续/行尾空格写成 nbsp，
+     破坏文档模型中的纯空格内容与输入规则匹配） */
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+.ProseMirror img {
+  max-width: 100%;
+}
+/* 块级图片段落（NodeView 渲染为 div 取代 p）：与 p 相同的块间距与末块归零 */
+.md-editor-image-block {
+  margin-bottom: var(--line-height);
+  line-height:0;
+}
+.md-editor-image-block:last-child {
+  margin-bottom: 0;
+}
+/* 列表 / 引用内的块级图片段落：与主题的 ol p / ul p / blockquote p 规则对齐，块间距归零 */
+.ProseMirror ol .md-editor-image-block,
+.ProseMirror ul .md-editor-image-block,
+.ProseMirror blockquote .md-editor-image-block {
+  margin-bottom: 0;
+}
+/* 原生锚点跳转的停靠偏移：与 TOC 滚动高亮锚线（96px）对齐，
+   使点击目录项后目标标题恰好成为高亮章节 */
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3,
+.ProseMirror h4,
+.ProseMirror h5,
+.ProseMirror h6 {
+  scroll-margin-top: var(--line-height-2x);
+}
+.ProseMirror:focus-visible {
+  outline: none;
+}
+.ProseMirror blockquote code {
+  font-family: inherit;
+}
+.ProseMirror blockquote strong code {
+  color: var(--strong-color);
+}
+.ProseMirror-widget .md-editor-heading-menu-panel {
+  font-family: initial;
+}
+
+/* CodeMirror 编辑器容器 */
+.cm-focused {
+  outline: none!important;
+}
+
+/* 垂直节奏网格线（body 加 rhythm-grid 类生效），可由工具栏 toggle_rhythm 按钮或 defaultShowRhythmGrid 配置控制 */
+.rhythm-grid {
+  --rhythm: 1.75rem;
+
+  /* 只光栅化一个节奏格，再由 background-size 平铺复用同一位图；
+     避免 repeating-gradient 在大面积上逐段取模造成的漏线/不连续 */
+  background-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(var(--rhythm) - 1px),
+    rgba(0, 0, 0, 0.05) calc(var(--rhythm) - 1px),
+    rgba(0, 0, 0, 0.05) var(--rhythm)
+  );
+  background-size: 100% var(--rhythm);
+}

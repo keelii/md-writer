@@ -1,0 +1,8 @@
+/* 预览块节点操作菜单特异性样式：按钮/面板样式由通用 block-op-menu.css 提供，
+   此处只剩预览块专属规则 */
+/* 预览块全屏态不提供操作入口（Esc 退出最大化后再操作）。
+   全屏激活类挂在 documentElement 上（preview-zoom.tsx），此处菜单是块的
+   前置兄弟（不在预览 DOM 内），需从根向下命中 */
+.md-editor-preview-fullscreen-active .md-editor-node-op-menu {
+  display: none;
+}

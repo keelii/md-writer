@@ -1,0 +1,247 @@
+/* 表格行列把手（table-handles.ts）：table NodeView 外包 shell，
+   - grip 直接渲染进 td/th 里（列 grip=首行各 th/td，行 grip=各行首列 td）：
+     cell 设 position:relative，grip 绝对定位 + 负偏移移到表格左缘 / 上缘
+     外侧（行 grip 对齐所在行、列 grip 对齐所在列），不压住表格内容，也无需
+     JS 写几何；
+   - 追加 + 条带与拖动指示条在 overlay（铺满表格 inset:0）上，几何由 JS 按
+     表格矩形写入（相对 overlay 原点）；
+   显现策略（行列 grip）：光标驱动——tableCoords 装饰插件按选区给光标所在行
+   的 tr 写 md-editor-table-active-row、所在列各 th/td 写
+   md-editor-table-active-col，CSS 据此只显现对应行 / 列把手；按住/拖动中
+   只显被按下的那一个 grip，其余同类与异类把手全部隐藏。隐藏
+   用 visibility（不可命中、不挡相邻内容——把手已移到表格外侧，覆盖不到表格
+   自身，必须避免挡住表格上下的段落）；单击 grip 落光标由 JS 补偿（grip 命中
+   的原生点击被拦截）。+ 追加条仍为 hover 自显（条带贴表缘，不覆盖其他内容，
+   opacity 0 常驻可命中）。 */
+
+/* 包壳补偿：table 不再直接是编辑器容器子元素，主题的 :last-child 末块
+   margin 归零规则落在壳上补齐（壳无 padding/border，table 的 margin 穿透折叠，
+   两个都归零才能对齐原节奏） */
+.md-editor-table-handles-shell {
+  position: relative
+}
+.md-editor-table-handles-shell:last-child {
+  margin-bottom: 0
+}
+.md-editor-table-handles-shell:last-child > table {
+  margin-bottom: 0
+}
+
+.md-editor-table-handles {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none
+}
+
+/* grip 的定位基准：所在单元格（th/td 统一带 .table-cell，由 schema
+   toDOM 与 cell NodeView 写入）设 relative（grip 以其为基准负偏移出表格，
+   不影响 cell 内常规内容——表格内一般无其他绝对定位依赖） */
+.md-editor-table-handles-shell .table-cell {
+  position: relative
+}
+
+/* grip / 追加条共通：默认隐藏（visibility 而非 opacity——隐藏后不可命中，
+   行列把手已移到表格外侧，若仍可命中会挡住表格上下相邻内容的点击），
+   图标居中 */
+.md-editor-table-handle {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  /*border: 1px solid transparent;*/
+  /*border-bottom: 0;*/
+  /*border-radius: 3px;*/
+  box-sizing: border-box;
+  cursor: grab;
+  pointer-events: auto;
+  /*visibility: hidden;*/
+  opacity: 0;
+  transition: opacity 0.12s ease-out, visibility 0.12s
+}
+.md-editor-table-handle:hover {
+  opacity: 1;
+  /*border: 1px solid var(--border-color);*/
+}
+
+/* 光标驱动的显现：光标所在行（tableCoords 装饰类）→ 该行行把手、光标所在列
+   → 该列列把手；按住拖动中的 grip（-active）自显。+ 追加条不在此列，仍由
+   自身 hover 显现（见下） */
+.md-editor-table-active-row .md-editor-table-handle-row,
+.md-editor-table-active-col .md-editor-table-handle-col,
+.md-editor-table-handle-active {
+  visibility: visible;
+  opacity: 1
+}
+
+/* 按住/拖动中只显被按下的那一个 grip（-active 已自显）：其余同类把手
+   （含光标驱动显现的行/列把手）与异类把手一律隐藏，避免按下后同类图标
+   齐刷刷出现。此块须置于上面的显现规则之后（与 -active-col 光标驱动显现
+   同特异度，靠顺序覆盖）。+ 追加条不带 -handle-row/-handle-col 类，不受
+   此规则影响 */
+.md-editor-table-handles-dragging-row .md-editor-table-handle-row:not(.md-editor-table-handle-active),
+.md-editor-table-handles-dragging-col .md-editor-table-handle-col:not(.md-editor-table-handle-active),
+.md-editor-table-handles-dragging-row .md-editor-table-handle-col,
+.md-editor-table-handles-dragging-col .md-editor-table-handle-row {
+  visibility: hidden;
+  opacity: 0
+}
+
+/* 列 grip：渲染在首行各 th/td 里，绝对定位负偏移到表格上缘外侧，左右对齐
+   所在列（+ 按钮不在其列，几何由 JS 写入 overlay 偏移）。
+   尺寸常量 20px 与行把手一致 */
+.md-editor-table-handle-col {
+  top: -20px;
+  left: 0;
+  right: 0;
+  height: 20px;
+  z-index: 3
+}
+
+/* 行 grip：渲染在各行首列 td/th 里，绝对定位负偏移到表格左缘外侧，上下对齐
+   所在行 */
+.md-editor-table-handle-row {
+  left: -20px;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+  z-index: 3
+}
+
+/* grip 悬停（仅在已显现时可命中）：淡蓝高亮自身；单击选中保留（-selected）
+   同样淡蓝高亮（::after 高亮见下方按住态规则） */
+.md-editor-table-handle-col:hover,
+.md-editor-table-handle-row:hover,
+.md-editor-table-handle-selected {
+  background: var(--gray-bg-weak);
+}
+.md-editor-table-handle-active {
+  cursor: grabbing;
+}
+/* 按住 grip（-active）的高亮与落点高亮（drop-target）同一套 ::after 实现，
+   行/列视觉一致：半透明底 + 同色描边 + 同款外扩几何。列 grip 补上/左/右
+   三边（下边与高亮列的上缘相接不描）；行 grip 补上/下/左三边（右边与高亮
+   行的左缘相接不描）。grip 本就 absolute，作 ::after 的定位基准。
+   单击选中保留（-selected）复用同一套视觉：松手后高亮不消失，直到按下
+   任何非把手位置清除 */
+.md-editor-table-handle-active::after,
+.md-editor-table-handle-selected::after {
+  display: block;
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: calc(100% + 1px);
+  height: calc(100% + 1px);
+  pointer-events: none;
+  content: "";
+  background: rgba(37, 99, 235, 0.10)
+}
+.md-editor-table-handle-active.md-editor-table-handle-col::after,
+.md-editor-table-handle-selected.md-editor-table-handle-col::after {
+  border-top: 1px solid var(--link-color);
+  border-left: 1px solid var(--link-color);
+  border-right: 1px solid var(--link-color)
+}
+.md-editor-table-handle-active.md-editor-table-handle-row::after,
+.md-editor-table-handle-selected.md-editor-table-handle-row::after {
+  border-top: 1px solid var(--link-color);
+  border-bottom: 1px solid var(--link-color);
+  border-left: 1px solid var(--link-color)
+}
+
+/* 图标小圆片：保证六点把手在任意单元格背景（表头底色 / 文字）上都可见 */
+.md-editor-table-handle-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  color: var(--border-color);
+  pointer-events: none
+}
+/* 已显现的 grip 图标染蓝（光标驱动显现 / 按住 / 悬停三种可见状态） */
+/*.md-editor-table-active-row .md-editor-table-handle-row .md-editor-table-handle-icon,*/
+/*.md-editor-table-active-col .md-editor-table-handle-col .md-editor-table-handle-icon,*/
+/*.md-editor-table-handle-active .md-editor-table-handle-icon,*/
+/*.md-editor-table-handle-col:hover .md-editor-table-handle-icon,*/
+/*.md-editor-table-handle-row:hover .md-editor-table-handle-icon {*/
+/*  color: #2563eb*/
+/*}*/
+.md-editor-table-handle-icon svg {
+  display: block
+}
+
+/* 追加 + 条带：下缘全表宽横条 / 右缘全表高竖条（尺寸由 JS 写入）。
+   覆盖共通默认的 visibility hidden——隐藏但可命中（opacity 0 常驻），
+   鼠标移到条带热区即自显，这正是右/下侧追加条的显现方式 */
+.md-editor-table-append-row,
+.md-editor-table-append-col {
+  cursor: pointer;
+  color: #6b7280;
+  visibility: visible
+}
+/* + 追加条 hover 自显（条带贴表缘外侧，热区即条带自身） */
+.md-editor-table-append-row:hover,
+.md-editor-table-append-col:hover {
+  opacity: 1;
+  background: var(--gray-bg);
+}
+
+/* 拖动/点击选中高亮：高亮行/列的各 td/th 带 drop-target 类（JS 按下即写、
+   拖动全程挂被拖动行/列、单击松手后保留在被点击行/列上），:after 伪元素画
+   半透明矩形——盖满单元格并外扩 1px，同行/列各格的高亮自然连成整条；
+   伪元素长在单元格内，随拖动的 transform 一起移动，高亮与位移天然同步。
+   cell 本就 position:relative（grip 定位基准） */
+td.md-editor-table-drop-target::after,
+th.md-editor-table-drop-target::after {
+  display: block;
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: calc(100% + 1px);
+  height: calc(100% + 1px);
+  pointer-events: none;
+  content: "";
+  background: rgba(37, 99, 235, 0.10)
+}
+/* 描边方向跟拖动/选中类型走（shell 的 -dragging-row / -dragging-col 拖动态、
+   -highlight-row / -highlight-col 单击选中保留态）：拖列描左右边框、拖行描
+   上下边框，避免行内出现横穿的边线（反之亦然） */
+.md-editor-table-handles-dragging-col td.md-editor-table-drop-target::after,
+.md-editor-table-handles-dragging-col th.md-editor-table-drop-target::after,
+.md-editor-table-handles-highlight-col td.md-editor-table-drop-target::after,
+.md-editor-table-handles-highlight-col th.md-editor-table-drop-target::after {
+  border-left: 1px solid var(--link-color);
+  border-right: 1px solid var(--link-color)
+}
+.md-editor-table-handles-dragging-row td.md-editor-table-drop-target::after,
+.md-editor-table-handles-dragging-row th.md-editor-table-drop-target::after,
+.md-editor-table-handles-highlight-row td.md-editor-table-drop-target::after,
+.md-editor-table-handles-highlight-row th.md-editor-table-drop-target::after {
+  border-top: 1px solid var(--link-color);
+  border-bottom: 1px solid var(--link-color)
+}
+/* 高亮整条首尾闭合：拖列时目标列末格（tbody 末行）的 ::after 补下边框
+   （非末列的格不是 tr 的 last-child，须按表末行取）；拖行时目标行末格
+   （tr 的 last-child）的 ::after 补右边框。单击选中的保留态（-highlight-*）
+   同样需要闭合 */
+.md-editor-table-handles-dragging-col tbody tr:last-child .md-editor-table-drop-target::after,
+.md-editor-table-handles-highlight-col tbody tr:last-child .md-editor-table-drop-target::after {
+  border-bottom: 1px solid var(--link-color)
+}
+.md-editor-table-handles-dragging-row .md-editor-table-drop-target:last-child::after,
+.md-editor-table-handles-highlight-row .md-editor-table-drop-target:last-child::after {
+  border-right: 1px solid var(--link-color)
+}
+
+/* 拖动实时平移反馈：拖动中 JS 给 td/th 写内联 transform（被拖动行/列跟随
+   指针、被跨越的行/列整列让位），transform 不参与布局，表格几何不变。
+   让位的单元格带 150ms 过渡平滑收放；被拖动行/列的单元格由 JS 写内联
+   transition:none 紧跟指针（覆盖此处的过渡）并提 z-index + 底色，盖在
+   让位行/列之上不穿透重叠。cell 本就 position:relative（grip 定位基准），
+   z-index 生效 */
+.md-editor-table-handles-dragging-col .table-cell,
+.md-editor-table-handles-dragging-row .table-cell {
+  transition: transform 150ms ease
+}

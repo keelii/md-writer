@@ -1,0 +1,21 @@
+.md-editor-raw-math-preview {
+  text-align: center;
+  /* 高度按韵律行高（28px）倍数取整由 JS 完成（snapMinHeightToRhythm），
+     此处负责把公式在取整后的高度内垂直居中，并兜底最小一行 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--line-height);
+}
+.md-editor-raw-inline-preview {
+  display: inline-block;
+  max-width: 100%;
+}
+.md-editor-raw-math-preview .katex-display {
+  margin: 0;
+}
+.md-editor-raw-inline-preview.md-editor-raw-inline-preview-error {
+  color: #b91c1c;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.92em;
+}

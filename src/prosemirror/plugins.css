@@ -1,0 +1,36 @@
+.md-editor-placeholder-block::before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+/* gapcursor：块间隙光标（表格/hr/预览等不可落光标位置的补位光标）。
+   默认实现是伪元素竖线；高度对齐韵律行高。 */
+.ProseMirror-gapcursor {
+  display: none;
+  pointer-events: none;
+  position: absolute;
+}
+.ProseMirror-gapcursor:after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: 0;
+  left: -2px;
+  width: 2px;
+  height: 1.25em;
+  background-color: currentColor;
+  animation: ProseMirror-gapcursor-blink 1.1s steps(2, start) infinite;
+}
+@keyframes ProseMirror-gapcursor-blink {
+  to {
+    visibility: hidden;
+  }
+}
+/* 官方 selector 为 .ProseMirror-focused（prosemirror-view 聚焦时加在编辑器根上）；
+   此前误写为 .ProseMirror-gapcursor-active——该类无人添加，导致光标永不显示 */
+.ProseMirror-focused .ProseMirror-gapcursor {
+  display: block;
+}

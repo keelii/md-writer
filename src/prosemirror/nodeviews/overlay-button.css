@@ -1,0 +1,29 @@
+/* 代码块复制按钮 / Mermaid 全屏按钮共用的悬浮角标按钮样式 */
+.md-editor-overlay-button {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--line-height);
+  height: var(--line-height);
+  padding: 0;
+  border: none;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  color: var(--fore-color);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.md-editor-overlay-button[hidden] {
+  display: none;
+}
+.md-editor-overlay-button svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+  color: #111827;
+}

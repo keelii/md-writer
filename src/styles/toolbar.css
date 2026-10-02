@@ -1,0 +1,37 @@
+/* 工具栏：粘性顶栏、按钮组 */
+
+.md-controls {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.9);
+  /* 用阴影画底线：border 会占 1px 布局高度，使编辑器整体偏离韵律网格 */
+  box-shadow: 0 1px 0 #eee;
+  box-sizing: border-box;
+}
+
+.md-controls .inner {
+  display: flex;
+  justify-content: space-between;
+}
+
+.md-controls .left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.md-controls button {
+  background: none;
+  border: none;
+  display: flex;
+  align-items: center;
+  height: var(--line-height-2x);
+}
+
+.md-controls .buttons {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+}

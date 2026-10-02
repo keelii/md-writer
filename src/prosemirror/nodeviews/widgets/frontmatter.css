@@ -1,0 +1,25 @@
+/* 仅保留横向行分隔线（无竖线），用 inset box-shadow 画线：
+   每格画底边，首行补顶边（外框顶线不能画在 table 上：inset 阴影位于
+   表格绘制栈最底层，会被 th 的不透明背景盖住） */
+.md-editor-raw-frontmatter-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.md-editor-raw-frontmatter-preview th,
+.md-editor-raw-frontmatter-preview td {
+  border: none;
+  box-shadow: inset 0 -1px #ddd;
+  /*padding: 0 1em;*/
+  text-align: left;
+}
+.md-editor-raw-frontmatter-preview tr:first-child th,
+.md-editor-raw-frontmatter-preview tr:first-child td {
+  box-shadow:
+    inset 0 1px #ddd,
+    inset 0 -1px #ddd;
+}
+.md-editor-raw-frontmatter-preview th {
+  width: 34%;
+  background: #f9fafb;
+}

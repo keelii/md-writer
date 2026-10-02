@@ -1,0 +1,6 @@
+.md-editor-code-block-wrap {
+  position: relative;
+}
+.md-editor-code-block-wrap > pre {
+  margin-bottom: var(--line-height);
+}

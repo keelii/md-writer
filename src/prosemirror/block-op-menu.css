@@ -1,0 +1,98 @@
+/* 块操作菜单通用样式（BlockOpMenu）：定位/显隐由核心 .md-editor-block-menu 提供
+   （block-menu.css），此处定义 ⋯ 主按钮（单项直按钮同款）与下拉面板行样式 */
+.md-editor-block-op-menu-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  color: #ccc;
+  cursor: pointer;
+  /*user-select: none;*/
+}
+.md-editor-block-op-menu-button:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: inherit;
+}
+.md-editor-block-op-menu-button svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+/* 文字主按钮（如代码块语言菜单显示当前语言）：自适应宽度 */
+.md-editor-block-op-menu-button.md-editor-block-op-menu-toggle-text {
+  width: auto;
+  min-width: 1.5rem;
+  padding: 0 6px;
+}
+.md-editor-block-op-menu-panel {
+  position: absolute;
+  font-size: 12px;
+  top: 100%;
+  right: 0.5em;
+  min-width: 4em;
+  margin-top: 4px;
+  padding: 4px;
+  border-radius: 4px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  display: none;
+  z-index: 30;
+
+}
+/* 仅代码块语言候选列表限高滚动 */
+.md-editor-code-block-menu .md-editor-block-op-menu-panel {
+  max-height: 240px;
+  overflow-y: auto;
+}
+.md-editor-block-op-menu.md-editor-block-menu-open .md-editor-block-op-menu-panel {
+  display: block;
+}
+.md-editor-block-op-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.md-editor-block-op-menu-item:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+/* 列表选择项的当前值（如当前语言）：与 code-block 主题的选中色一致 */
+.md-editor-block-op-menu-item.md-editor-block-op-menu-item-active {
+  color: #2563eb;
+  font-weight: 600;
+}
+/* 分组分隔线（如语言候选与删除操作之间） */
+.md-editor-block-op-menu-divider {
+  height: 1px;
+  margin: 4px 2px;
+  background: #e5e7eb;
+}
+.md-editor-block-op-menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.md-editor-block-op-menu-icon svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+}

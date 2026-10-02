@@ -1,0 +1,13 @@
+.md-editor-raw-preview {
+  /*overflow: auto;*/
+  margin-bottom: var(--line-height);
+  /* 预览整体不可编辑：点击放行原生事件不主动选中，cursor 交由浏览器默认 */
+  cursor: default;
+}
+.md-editor-raw-preview.ProseMirror-selectednode {
+  outline: 2px solid #708cff;
+}
+.md-editor-raw-preview-error {
+  color: #b91c1c;
+  white-space: pre-wrap;
+}

@@ -1,0 +1,61 @@
+/* 预览块公共样式：mermaid 图表与纯 SVG 块共用（见 preview-zoom.tsx 类名约定） */
+.md-editor-preview-shell {
+  box-sizing: border-box;
+  position: relative;
+  margin-bottom: calc(var(--line-height));
+  overflow: auto;
+  /* 预览整体不可编辑：点击放行原生事件不主动选中，cursor 交由浏览器默认 */
+  cursor: default;
+}
+.md-editor-preview-shell.ProseMirror-selectednode {
+  outline: 2px solid #708cff;
+}
+/* 高度按韵律行高倍数取整由 JS 完成（utils.snapMinHeightToRhythm），
+   此处负责把 SVG 在取整后的高度内垂直居中，并兜底最小一行 */
+.md-editor-preview-diagram {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--line-height);
+}
+.md-editor-preview-shell svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+.md-editor-preview-diagram-panzoom {
+  height: min(60vh, 560px);
+  /* 韵律对齐：60vh 向下取整为 28px 整数倍（round() 不支持时回退上一行） */
+  height: min(round(down, 60vh, 1.75rem), 560px);
+  min-height: 280px;
+  overflow: hidden;
+}
+.md-editor-preview-diagram-panzoom svg {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+}
+.md-editor-preview-error {
+  color: #b91c1c;
+  white-space: pre-wrap;
+}
+.md-editor-preview-fullscreen-active {
+  overflow: hidden;
+}
+.md-editor-preview-shell.md-editor-preview-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: #fff;
+}
+.md-editor-preview-shell.md-editor-preview-fullscreen .md-editor-preview-diagram {
+  height: 100vh;
+  min-height: 0;
+}
+.md-editor-preview-shell.md-editor-preview-fullscreen svg {
+  max-width: none;
+}

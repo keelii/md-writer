@@ -1,0 +1,31 @@
+{
+  "name": "@swaves/md-editor",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "./node_modules/.bin/esbuild src/index.tsx --bundle --format=iife --target=es2018 --global-name=MDWriter --outdir=dist --sourcemap --watch --jsx=transform --jsx-factory=h --jsx-fragment=Fragment",
+    "build": "./node_modules/.bin/esbuild src/index.tsx --bundle --format=iife --target=es2018 --global-name=MDWriter --outdir=dist --sourcemap --minify --jsx=transform --jsx-factory=h --jsx-fragment=Fragment",
+    "build:meta": "./node_modules/.bin/esbuild src/index.tsx --bundle --format=iife --target=es2018 --global-name=MDWriter --outdir=dist --sourcemap --metafile=meta.json --jsx=transform --jsx-factory=h --jsx-fragment=Fragment"
+  },
+  "dependencies": {
+    "@codemirror/commands": "^6.9.0",
+    "@codemirror/lang-markdown": "^6.3.3",
+    "@codemirror/language": "^6.11.3",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.38.6",
+    "lowlight": "^3.3.0",
+    "prosemirror-commands": "^1.7.2",
+    "prosemirror-gapcursor": "^1.4.1",
+    "prosemirror-history": "^1.5.1",
+    "prosemirror-inputrules": "^1.5.1",
+    "prosemirror-keymap": "^1.2.3",
+    "prosemirror-markdown": "^1.13.8",
+    "prosemirror-model": "^1.25.12",
+    "prosemirror-schema-list": "^1.5.1",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-view": "^1.42.6"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

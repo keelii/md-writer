@@ -1,0 +1,205 @@
+.md-editor-dialog.ui-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(17, 24, 39, 0.4);
+}
+.md-editor-dialog.ui-dialog-backdrop[hidden] {
+  display: none;
+}
+.md-editor-dialog .ui-dialog {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 420px;
+  background: #fff;
+  color: #111827;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.2);
+}
+.md-editor-dialog .ui-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.md-editor-dialog .ui-dialog-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+.md-editor-dialog .ui-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.md-editor-dialog .ui-icon-btn:hover {
+  background: #f3f4f6;
+}
+.md-editor-dialog .ui-dialog-body {
+  padding: 16px;
+}
+.md-editor-dialog .ui-field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.md-editor-dialog .ui-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font: inherit;
+  color: inherit;
+  background: #fff;
+}
+.md-editor-dialog .ui-input:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: -1px;
+}
+.md-editor-dialog .ui-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid #e5e7eb;
+}
+.md-editor-dialog .ui-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: #fff;
+  color: #111827;
+  font: inherit;
+  cursor: pointer;
+}
+.md-editor-dialog .ui-btn.primary {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+.md-editor-dialog .ui-btn:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+.md-editor-dialog .ui-file-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: #fff;
+  color: #111827;
+  font: inherit;
+  cursor: pointer;
+}
+.md-editor-dialog .ui-file-pick:hover {
+  background: #f3f4f6;
+}
+/* 源码编辑弹窗：加宽 + 等宽字体多行文本域 */
+#md-editor-source-dialog .ui-dialog {
+  max-width: 640px;
+}
+#md-editor-source-dialog .ui-dialog-body {
+  max-height: 75vh;
+  overflow-y: auto;
+}
+#md-editor-source-dialog .md-editor-source-layout {
+  display: flex;
+  flex-direction: column;
+}
+#md-editor-source-dialog .md-editor-source-preview-section {
+  margin-top: 16px;
+}
+#md-editor-source-dialog .md-editor-source-preview-section[hidden] {
+  display: none;
+}
+#md-editor-source-dialog .md-editor-source-preview {
+  box-sizing: border-box;
+  min-height: 100px;
+  max-height: 35vh;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+#md-editor-source-dialog .md-editor-source-preview svg {
+  max-width: 100%;
+  height: auto;
+}
+/* CodeMirror 源码编辑区：容器承担边框/圆角/裁切，尺寸沿用旧 ui-textarea 视觉 */
+#md-editor-source-dialog .md-editor-source-editor {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 200px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: #fff;
+  overflow: hidden;
+}
+#md-editor-source-dialog .md-editor-source-editor .cm-editor {
+  min-height: 198px;
+  font-family: var(--font-code);
+  font-size: 13px;
+  color: inherit;
+  background: transparent;
+}
+#md-editor-source-dialog .md-editor-source-editor .cm-scroller {
+  max-height: 35vh;
+  overflow: auto;
+  line-height: 1.5;
+}
+#md-editor-source-dialog .md-editor-source-editor .cm-content {
+  padding: 8px 10px;
+}
+#md-editor-source-dialog .md-editor-source-editor .cm-editor.cm-focused {
+  outline: 2px solid #2563eb;
+  outline-offset: -1px;
+}
+/* 快捷键帮助弹窗：加宽 + 分组表格 */
+#md-editor-help-dialog .ui-dialog {
+  max-width: 640px;
+}
+#md-editor-help-dialog .ui-dialog-body {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+#md-editor-help-dialog .ui-shortcut-section-title {
+  margin: 12px 16px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+}
+#md-editor-help-dialog .ui-shortcut-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+#md-editor-help-dialog .ui-shortcut-table td {
+  padding: 5px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: top;
+}
+#md-editor-help-dialog .ui-shortcut-table tr:last-child td {
+  border-bottom: 0;
+}
+#md-editor-help-dialog .ui-shortcut-key {
+  width: 40%;
+  white-space: nowrap;
+  font-weight: 500;
+}
