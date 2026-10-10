@@ -208,24 +208,18 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
     return rects
   }
 
-  // 拖动实时反馈：写单个单元格的拖动内联样式。moving = 被拖动行/列的单元格——
-  // 平移跟随指针（无过渡）+ z-index 提层盖在让位行/列之上 + 底色防文字穿透
-  // 重叠；否则为让位（dx/dy 非 0，带 CSS 过渡平滑收放）或复位（清空）。
-  // 只写这三项内联样式：单元格其余内联样式归其他功能，不整体覆写 style
+  // 拖动实时反馈：写单个单元格的拖动 transform。moving = 被拖动行/列的
+  // 单元格——平移跟随指针（无过渡）；否则为让位（dx/dy 非 0，带 CSS 过渡
+  // 平滑收放）或复位（清空）。提层 z-index 与防穿透底色不写内联——由 CSS
+  // 按拖动态分流（shell 带 -dragging 类 + 被拖动行/列各格全程带 drop-target
+  // 类）：td 用 --table-drag-cell-bg、th 保表头灰底，th 不再被 td 的底色
+  // 一刀切覆盖；松手清 -dragging 类后样式自然消失。
+  // 只写 transform 一项内联样式：单元格其余内联样式归其他功能，不整体覆写 style
   function writeDragTransform(el: HTMLElement, dx: number, dy: number, moving: boolean) {
     if (moving || dx !== 0 || dy !== 0) {
       el.style.transform = "translate3d(" + dx + "px, " + dy + "px, 0)"
     } else {
       el.style.transform = ""
-    }
-    if (moving) {
-      el.style.transition = "none"
-      el.style.zIndex = "200"
-      el.style.backgroundColor = "var(--gray-bg)"
-    } else {
-      el.style.transition = ""
-      el.style.zIndex = ""
-      el.style.backgroundColor = ""
     }
   }
 

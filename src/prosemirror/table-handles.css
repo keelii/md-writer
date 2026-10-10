@@ -185,7 +185,7 @@
 .md-editor-table-append-row:hover,
 .md-editor-table-append-col:hover {
   opacity: 1;
-  background: var(--gray-bg);
+  background: var(--gray-bg-weak);
 }
 
 /* 拖动/点击选中高亮：高亮行/列的各 td/th 带 drop-target 类（JS 按下即写、
@@ -237,11 +237,36 @@ th.md-editor-table-drop-target::after {
 
 /* 拖动实时平移反馈：拖动中 JS 给 td/th 写内联 transform（被拖动行/列跟随
    指针、被跨越的行/列整列让位），transform 不参与布局，表格几何不变。
-   让位的单元格带 150ms 过渡平滑收放；被拖动行/列的单元格由 JS 写内联
-   transition:none 紧跟指针（覆盖此处的过渡）并提 z-index + 底色，盖在
-   让位行/列之上不穿透重叠。cell 本就 position:relative（grip 定位基准），
-   z-index 生效 */
+   让位的单元格带 150ms 过渡平滑收放；被拖动行/列的单元格（拖动全程带
+   drop-target 类）在此关过渡紧跟指针并提 z-index，盖在让位行/列之上不
+   穿透重叠。cell 本就 position:relative（grip 定位基准），z-index 生效。
+   此块须置于上面 drop-target 描边规则之后（同为 -dragging-* 前缀无冲突） */
 .md-editor-table-handles-dragging-col .table-cell,
 .md-editor-table-handles-dragging-row .table-cell {
   transition: transform 150ms ease
+}
+/* 被拖动行/列的提层与防穿透底色（不写内联，纯 CSS 按 td/th 分流）：
+   拖动态 = shell 带 -dragging 类 + 被拖动行/列各 td/th 全程带 drop-target
+   类，让位格不带故不受影响；单击选中的保留态（-highlight-*）没有
+   -dragging 类，也不受影响。松手 shell 清 -dragging 类后样式自然消失。
+   此块须置于上面过渡规则之后（.dragging .drop-target 与 .dragging-col
+   .table-cell 同特异度，靠顺序覆盖 moving 格的 transition） */
+.md-editor-table-handles-dragging .md-editor-table-drop-target {
+  transition: none;
+  z-index: 200
+}
+/* td 用半透明白拖动底色（变量见下）；th 保主题表头灰底——thead tr 的灰底
+   长在 tr 上不动，平移中的 th 须自带底色，且不能被 td 的底色一刀切覆盖 */
+.md-editor-table-handles-dragging td.md-editor-table-drop-target {
+  background-color: var(--table-drag-cell-bg)
+}
+.md-editor-table-handles-dragging th.md-editor-table-drop-target {
+  background-color: var(--gray-bg)
+}
+
+/* 被拖动行/列 td 的防穿透底色：接近 drop-target 高亮观感的半透明白
+   （叠在 ::after 蓝色高亮之下的合成观感）；让位格文字会隐约透出，
+   越接近不透明防穿透越稳，主题可按需覆盖此变量 */
+.md-editor-table-handles-shell {
+  --table-drag-cell-bg: rgba(255,255,255, 0.8);
 }

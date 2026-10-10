@@ -188,7 +188,8 @@ function cellAt(rowIdx: number, colIdx: number): HTMLElement {
   var tr = shellEl().querySelectorAll("tr")[rowIdx] as HTMLElement
   return tr.children[colIdx] as HTMLElement
 }
-// 拖动实时反馈的内联样式（transform/transition/z-index/backgroundColor）是否全清空
+// 拖动实时反馈的内联样式是否全清空（拖动只写 transform，提层/底色走 CSS 类，
+// 但仍按四项全查以防回退到内联写法）
 function allDragStylesCleared(): boolean {
   var trs = shellEl().querySelectorAll("tr")
   for (var ri = 0; ri < trs.length; ri += 1) {
@@ -304,8 +305,11 @@ win.document.dispatchEvent(pointerEvent("pointermove", {x: 0, y: 70}))
 // H 行不动；不提交文档变更
 check("拖动中不提交文档变更", readTableRows(view.state.doc), rowsBeforeDrag)
 check("拖动中 a 行单元格平移跟随", cellAt(1, 0).style.transform.indexOf("70px") >= 0, true)
-check("拖动中 a 行单元格提层", cellAt(1, 1).style.zIndex, "200")
-check("拖动中 a 行单元格带底色", cellAt(1, 2).style.backgroundColor, "var(--gray-bg)")
+  // 提层与防穿透底色已纯 CSS 化（shell -dragging + 单元格 drop-target 类按
+  // td/th 分流：td 用 --table-drag-cell-bg、th 保表头灰底），不再写内联——
+  // 断言内联为空证明未回退到 JS 内联样式一刀切
+  check("拖动中提层不写内联（CSS 驱动）", cellAt(1, 1).style.zIndex, "")
+check("拖动中底色不写内联（CSS 驱动）", cellAt(1, 2).style.backgroundColor, "")
 check("拖动中 b 行整行让位", cellAt(2, 0).style.transform.indexOf("-40px") >= 0, true)
 check("拖动中 c 行整行让位", cellAt(3, 2).style.transform.indexOf("-40px") >= 0, true)
 // 高亮全程挂被拖动的 a 行（fromIndex=1），不随落点切换——拖到末位后仍亮 a 行，
