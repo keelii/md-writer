@@ -68,7 +68,6 @@ export function toggleClass(el: Element, className: string, force?: boolean) {
 }
 
 export function setElementVisible(el: HTMLElement, visible: boolean) {
-  el.hidden = !visible
   if (visible) {
     el.style.removeProperty("display")
     return

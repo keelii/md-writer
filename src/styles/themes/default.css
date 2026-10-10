@@ -84,6 +84,16 @@
   align-items: center;
   margin-bottom: var(--line-height);
 }
+/*.theme-default .md-editor-horizontal-rule::after {*/
+/*  display: inline-block;*/
+/*  content: "§";*/
+/*  position: absolute;*/
+/*  left: 50%;*/
+/*  margin-left: -0.5em;*/
+/*  color: var(--border-color);*/
+/*  background: #fff;*/
+/*  padding: 0 5px;*/
+/*}*/
 .theme-default hr {
   width: 100%;
   border: none;

@@ -32,6 +32,10 @@ export var SvgIcon: Record<string, string> = {
   chevronFirstRotate90: withRotation(chevronFirstSvg, 90),
   chevronFirstRotateNeg90: withRotation(chevronFirstSvg, -90),
   chevronLast: '<svg data-name="chevron-last" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-last-icon lucide-chevron-last"><path d="m7 18 6-6-6-6"></path><path d="M17 6v12"></path></svg>',
+  // 表格行/列把手（grip 圆点 + 追加按钮，尺寸与把手交互强相关，不用 lucide 基准尺寸）
+  tableColGrip: '<svg width="15" height="3" fill="currentColor" viewBox="0 0 15 3" xmlns="http://www.w3.org/2000/svg"><circle cx="1.5" cy="1.5" r="1.5"></circle><circle cx="7.5" cy="1.5" r="1.5"></circle><circle cx="13.5" cy="1.5" r="1.5"></circle></svg>',
+  tableRowGrip: '<svg width="3" height="15" fill="currentColor" viewBox="0 0 3 15" xmlns="http://www.w3.org/2000/svg"><circle cy="1.5" cx="1.5" r="1.5"></circle><circle cy="7.5" cx="1.5" r="1.5"></circle><circle cy="13.5" cx="1.5" r="1.5"></circle></svg>',
+  tablePlus: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" xmlns="http://www.w3.org/2000/svg"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>',
   // 视图切换
   codeXml: '<svg data-name="code-xml" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-code-xml-icon lucide-code-xml"><path d="m8 8-4 4 4 4"></path><path d="m16 8 4 4-4 4"></path><path d="m14 4-4 16"></path></svg>',
   squareText: '<svg data-name="square-text" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-square-text preview-icon"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M7 8h8"></path><path d="M7 12h10"></path><path d="M7 16h6"></path></svg>',

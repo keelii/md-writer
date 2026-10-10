@@ -1,13 +1,17 @@
 // 表格 DecoMenu：hover 顶层表格时在块左侧挂 dropdown（⋯ 主按钮 + 下拉面板），
-// 绑定 8 个表格命令（commandByName 分发）+ 删除整表，形态/互斥由 block-op-menu.tsx 提供。
+// 绑定 4 个表格命令（commandByName 分发）+ 复制源码 + 删除整表，形态/互斥由 block-op-menu.tsx 提供。
+// 行/列的拖动移动与末尾追加已由 table-handles.ts 把手交互覆盖，菜单不再提供移动类按钮。
 //
 // 行列命令语义（跟随光标）：命令层 applyTableMutation 基于选区取行列索引，
 // 因此运行前保证选区落位——
 // - 光标已在本表：直接作用于光标所在行/列（与工具栏表格按钮一致）；
 // - 光标不在本表（hover 场景常态）：选区退化为末行末列（最后一个单元格），
-//   「添加行/列」即末尾追加，删除/移动针对末行末列。
+//   「添加行/列」即末尾追加，删除针对末行末列。
 //
-// markdown 兼容：所有操作只改 PM 文档结构（增删移 GFM 表格行/列），
+// 复制源码：用 markdown 序列化器（markdown.ts 的 serializeNodeMarkdown）把
+// 当前 table 节点序列化为 GFM 源码写入剪贴板，只读不写，与文档持久化同源。
+//
+// markdown 兼容：所有操作只改 PM 文档结构（增删 GFM 表格行/列），
 // 序列化仍由 prosemirror-markdown 负责，不引入非标准语法。
 //
 // 锚点形态：table 是 isolating 复合块（table_head 的 DOM 是 thead，
@@ -15,11 +19,13 @@
 import { Node as PMNode, Schema } from "prosemirror-model"
 import { Selection } from "prosemirror-state"
 import { SvgIcon } from "../icons"
+import { copyTextToClipboard } from "../utils"
 import { BlockMenuContext, BlockMenuRegistration } from "./block-menu"
 import { buildBlockOpMenuDom, BlockOpMenuItem } from "./block-op-menu"
 import { reloadBlockAt, deleteBlockAt } from "./prosemirror-helpers"
 import { commandByName } from "./commands"
 import { getTableContext } from "./table"
+import { buildMarkdownSerializer, serializeNodeMarkdown } from "./markdown"
 
 function isTableNode(node: PMNode): boolean {
   return node.type.name === "table"
@@ -51,20 +57,31 @@ function runTableCommand(ctx: BlockMenuContext, schema: Schema, name: string) {
   view.focus()
 }
 
+// 复制表格的 GFM markdown 源码：按当前 doc 重读节点（避免 decoration 重算竞态读到
+// 错位内容），序列化后去掉尾部换行写入剪贴板；只读不写，不产生文档事务。
+function copyTableSource(ctx: BlockMenuContext, serializer: ReturnType<typeof buildMarkdownSerializer>) {
+  var current = reloadBlockAt(ctx, isTableNode)
+  if (!current) {
+    return
+  }
+  var source = serializeNodeMarkdown(serializer, current).replace(/\s+$/, "")
+  copyTextToClipboard(source).catch(function () {
+    // 剪贴板失败静默：按钮交互不弹 Dialog（Dialog 类交互归 actions.ts）
+  })
+}
+
 export function createTableMenuRegistration(schema: Schema): BlockMenuRegistration | null {
   if (!schema.nodes.table) {
     return null
   }
-  // 图标沿用工具栏表格按钮（buttons.tsx）同一映射，保持两处入口一致
+  var serializer = buildMarkdownSerializer(schema)
+  // 图标沿用工具栏表格按钮（buttons.tsx）同一映射，保持两处入口一致；
+  // 移动行/列已由 table-handles.ts 拖拽把手覆盖，此处不再提供。
   var commandEntries: Array<{name: string, label: string, icon: string}> = [
     {name: "table_add_row", label: "添加行", icon: SvgIcon.betweenHorizontalStart},
     {name: "table_add_column", label: "添加列", icon: SvgIcon.betweenVerticalStart},
     {name: "table_delete_row", label: "删除行", icon: SvgIcon.listX},
-    {name: "table_delete_column", label: "删除列", icon: SvgIcon.listXRotateNeg90},
-    {name: "table_move_row_up", label: "上移行", icon: SvgIcon.chevronFirstRotate90},
-    {name: "table_move_row_down", label: "下移行", icon: SvgIcon.chevronFirstRotateNeg90},
-    {name: "table_move_column_left", label: "左移列", icon: SvgIcon.chevronFirst},
-    {name: "table_move_column_right", label: "右移列", icon: SvgIcon.chevronLast}
+    {name: "table_delete_column", label: "删除列", icon: SvgIcon.listXRotateNeg90}
   ]
 
   return {
@@ -76,7 +93,16 @@ export function createTableMenuRegistration(schema: Schema): BlockMenuRegistrati
       return node.type.name === "table"
     },
     buildMenu: function (ctx) {
-      var items: BlockOpMenuItem[] = commandEntries.map(function (entry) {
+      // 首项复制源码：剪贴板 icon + 「复制源码」文案，与预览块菜单的复制入口对齐
+      var items: BlockOpMenuItem[] = [{
+        label: "复制源码",
+        icon: SvgIcon.clipboard,
+        showLabel: true,
+        run: function () {
+          copyTableSource(ctx, serializer)
+        }
+      }]
+      items.push.apply(items, commandEntries.map(function (entry) {
         return {
           label: entry.label,
           icon: entry.icon,
@@ -85,7 +111,7 @@ export function createTableMenuRegistration(schema: Schema): BlockMenuRegistrati
             runTableCommand(ctx, schema, entry.name)
           }
         }
-      })
+      }))
       items.push({
         label: "删除",
         icon: SvgIcon.trash,

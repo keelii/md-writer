@@ -18,6 +18,14 @@ import { createImageBlockNodeView } from "./prosemirror/image-rhythm"
 import { createHandleAwareCellNodeView, createTableHandlesNodeView, createTableCoordsPlugin } from "./prosemirror/table-handles"
 import { createCodeMirrorSourceEditor, SourceEditorAdapter } from "./codemirror/source-editor"
 import { bindTocPanel } from "./prosemirror/toc"
+import {
+  StorageBackend,
+  MDWriterViewState,
+  readStoredContent,
+  writeStoredContent,
+  readStoredState,
+  writeStoredState
+} from "./storage"
 import { h } from "./jsx"
 
 // // @ts-ignore
@@ -84,7 +92,7 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
     mount.appendChild(controlsRoot)
   }
 
-  var sourceHost = <div className="md-editor-source-host" hidden="hidden" style="display: none" />
+  var sourceHost = <div className="md-editor-source-host" style="display: none" />
   mount.appendChild(sourceHost)
 
   var schema = buildSchema()
@@ -97,9 +105,15 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
   // 直接 setAttribute 会触发 attribute mutation 重绘把手
   plugins.push(createTableCoordsPlugin())
 
-  var initialMarkdown = ""
-  if (typeof opts.initialMarkdown === "string") {
+  // 持久存储（storage: 'localStorage'）：恢复时存储内容优先，initialMarkdown 仅在无存储时兜底
+  var storageBackend: StorageBackend | null = opts.storage === "localStorage" ? "localStorage" : null
+  var storedViewState: Partial<MDWriterViewState> | null = storageBackend ? readStoredState(storageBackend) : null
+  var initialMarkdown: string | null = storageBackend ? readStoredContent(storageBackend) : null
+  if (initialMarkdown === null && typeof opts.initialMarkdown === "string") {
     initialMarkdown = opts.initialMarkdown
+  }
+  if (initialMarkdown === null) {
+    initialMarkdown = ""
   }
 
   var doc = parseMarkdown(schema, markdownParser, initialMarkdown)
@@ -115,8 +129,53 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
     refreshControls()
   }
 
+  // 内容持久化：sync() 已完成 serialize，这里只做 debounce 落盘（高频输入不逐笔写 localStorage）。
+  // pagehide / destroy 时强制 flush，避免 300ms 窗口内关闭页面丢最后一次编辑。
+  var pendingStoredMarkdown: string | null = null
+  var persistContentTimer: ReturnType<typeof setTimeout> | null = null
+
+  function schedulePersistContent(markdown: string) {
+    if (!storageBackend) {
+      return
+    }
+    pendingStoredMarkdown = markdown
+    if (persistContentTimer !== null) {
+      clearTimeout(persistContentTimer)
+    }
+    persistContentTimer = setTimeout(function () {
+      persistContentTimer = null
+      flushPersistContent()
+    }, 300)
+  }
+
+  function flushPersistContent() {
+    if (persistContentTimer !== null) {
+      clearTimeout(persistContentTimer)
+      persistContentTimer = null
+    }
+    if (pendingStoredMarkdown !== null) {
+      writeStoredContent(storageBackend || "localStorage", pendingStoredMarkdown)
+      pendingStoredMarkdown = null
+    }
+  }
+
+  // 视图状态持久化：三处切换（源码态 / 目录 / 韵律网格）后写整份状态
+  function persistViewState() {
+    if (!storageBackend) {
+      return
+    }
+    writeStoredState(storageBackend, {
+      sourceMode: isSourceModeActive(),
+      showToc: tocVisible,
+      showRhythmGrid: rhythmVisible
+    })
+  }
+
   function sync(nextState: EditorState) {
     var markdown = serializer.serialize(nextState.doc)
+    if (storageBackend) {
+      schedulePersistContent(markdown)
+    }
     if (typeof opts.onChange === "function") {
       opts.onChange(markdown)
     }
@@ -133,7 +192,7 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
   var sourceEditorReady: Promise<SourceEditorAdapter> | null = null
 
   function isSourceModeActive() {
-    return !sourceHost.hidden
+    return sourceHost.style.display !== "none"
   }
 
   function refreshControls() {
@@ -157,7 +216,14 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
       return sourceEditorReady
     }
     sourceEditorReady = Promise.resolve().then(function () {
-      var editor = createCodeMirrorSourceEditor(sourceHost, serializer.serialize(view.state.doc))
+      var editor = createCodeMirrorSourceEditor(
+        sourceHost,
+        serializer.serialize(view.state.doc),
+        // 源码态的输入不经过 PM dispatchTransaction：由 CodeMirror 透传给持久层
+        function (value: string) {
+          schedulePersistContent(value)
+        }
+      )
       return editor
     }).then(function (editor) {
       sourceEditor = editor
@@ -210,9 +276,10 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
   function toggleSourceMode() {
     if (isSourceModeActive()) {
       exitSourceMode()
-      return
+    } else {
+      enterSourceMode()
     }
-    enterSourceMode()
+    persistViewState()
   }
 
   function refreshMermaidPreviews() {
@@ -342,8 +409,9 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
     }
   })
   var tocRootElement: HTMLElement | null = null
-  // 目录初始可见状态由 defaultShowTOC 配置，默认隐藏，工具栏 toggle_toc 按钮切换
-  var tocVisible = opts.defaultShowTOC === true
+  // 目录初始可见状态由 defaultShowTOC 配置，默认隐藏，工具栏 toggle_toc 按钮切换；
+  // 开启 storage 时以存储状态优先
+  var tocVisible = storedViewState ? storedViewState.showToc === true : opts.defaultShowTOC === true
 
   function toggleTocVisibility() {
     if (!tocRootElement) {
@@ -352,10 +420,12 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
     tocVisible = !tocVisible
     setElementVisible(tocRootElement, tocVisible)
     refreshControls()
+    persistViewState()
   }
 
-  // 垂直韵律网格（body.rhythm-grid）：初始状态由 defaultShowRhythmGrid 配置
-  var rhythmVisible = opts.defaultShowRhythmGrid === true
+  // 垂直韵律网格（body.rhythm-grid）：初始状态由 defaultShowRhythmGrid 配置，
+  // 开启 storage 时以存储状态优先
+  var rhythmVisible = storedViewState ? storedViewState.showRhythmGrid === true : opts.defaultShowRhythmGrid === true
   if (rhythmVisible) {
     toggleClass(document.body, "rhythm-grid", true)
   }
@@ -363,6 +433,7 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
     rhythmVisible = !rhythmVisible
     toggleClass(document.body, "rhythm-grid", rhythmVisible)
     refreshControls()
+    persistViewState()
   }
 
   viewControls = bindViewButtons(viewBarRoot || document, {
@@ -444,6 +515,20 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
   sync(state)
   refreshControls()
 
+  // 恢复上次会话的源码态视图（CodeMirror 懒加载完成后进入，内容为已恢复的 doc）
+  if (storedViewState && storedViewState.sourceMode === true) {
+    enterSourceMode()
+  }
+
+  // 关页兜底：debounce 窗口内（300ms）关闭页面也把内容落盘
+  function handlePageHide() {
+    flushPersistContent()
+  }
+  window.addEventListener("pagehide", handlePageHide)
+  lifecycleListeners.push(function () {
+    window.removeEventListener("pagehide", handlePageHide)
+  })
+
   return {
     getMarkdown: function() {
       if (isSourceModeActive() && sourceEditor) {
@@ -469,6 +554,7 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
     },
     refreshMermaidPreviews: refreshMermaidPreviews,
     destroy: function() {
+      flushPersistContent()
       lifecycleListeners.forEach(function (cleanup) {
         cleanup()
       })

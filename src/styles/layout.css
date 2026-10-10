@@ -18,6 +18,9 @@ body {
   --gray-bg-weak: rgba(242,242,242, 0.3);
   --max-content-width: 55em;
 
+  --table-handler-size: 15px;
+  --table-handler-size-n: -15px;
+
   min-height: 100vh;
 }
 

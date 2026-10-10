@@ -40,6 +40,7 @@ type MarkdownSerializerStateCompat = MarkdownSerializerState & {
   marks: unknown;
   options: unknown;
   renderInline: (node: PMNode, parent?: boolean) => void;
+  render: (node: PMNode, parent?: PMNode, index?: number) => void;
 };
 type MarkdownSerializerStateCompatConstructor = new (nodes: unknown, marks: unknown, options: unknown) => MarkdownSerializerStateCompat;
 
@@ -157,6 +158,20 @@ function serializeTableCell(state: MarkdownSerializerState, cell: PMNode) {
   var tempState = new StateCtor(serializerState.nodes, serializerState.marks, serializerState.options)
   tempState.renderInline(cell, true)
   return escapeTableCellContent(tempState.out)
+}
+
+// 序列化单个块节点为 markdown 源码：MarkdownSerializer.serialize 只会遍历
+// content 的子节点逐个渲染（serialize(doc) 即渲染各顶层块），对 table 这类
+// 复合块必须自建 state 直接 render 节点本身，才能命中 nodes.table 序列化器。
+// options 传 {} 与 serialize() 内部默认一致（本项目序列化器未定制 options）。
+// 供 DecoMenu「复制源码」等单块导出场景使用，不产生任何文档变更。
+export function serializeNodeMarkdown(serializer: MarkdownSerializer, node: PMNode): string {
+  // d.ts 未暴露构造签名（render 的 parent/index 可省略），
+  // 与 serializeTableCell 同样走 Compat 构造类型转换
+  var StateCtor = MarkdownSerializerState as unknown as MarkdownSerializerStateCompatConstructor
+  var state = new StateCtor(serializer.nodes, serializer.marks, {})
+  state.render(node)
+  return state.out
 }
 
 export function buildMarkdownSerializer(_schema: Schema): MarkdownSerializer {

@@ -90,22 +90,22 @@
 
 /* 列 grip：渲染在首行各 th/td 里，绝对定位负偏移到表格上缘外侧，左右对齐
    所在列（+ 按钮不在其列，几何由 JS 写入 overlay 偏移）。
-   尺寸常量 20px 与行把手一致 */
+   尺寸取 --table-handler-size（layout.css 定义），与行把手一致 */
 .md-editor-table-handle-col {
-  top: -20px;
+  top: var(--table-handler-size-n);
   left: 0;
   right: 0;
-  height: 20px;
+  height: var(--table-handler-size);
   z-index: 3
 }
 
 /* 行 grip：渲染在各行首列 td/th 里，绝对定位负偏移到表格左缘外侧，上下对齐
    所在行 */
 .md-editor-table-handle-row {
-  left: -20px;
+  left: var(--table-handler-size-n);
   top: 0;
   bottom: 0;
-  width: 20px;
+  width: var(--table-handler-size);
   z-index: 3
 }
 
@@ -155,8 +155,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 15px;
-  height: 15px;
+  width: var(--table-handler-size);
+  height: var(--table-handler-size);
   color: var(--border-color);
   pointer-events: none
 }
@@ -172,14 +172,22 @@
   display: block
 }
 
-/* 追加 + 条带：下缘全表宽横条 / 右缘全表高竖条（尺寸由 JS 写入）。
-   覆盖共通默认的 visibility hidden——隐藏但可命中（opacity 0 常驻），
-   鼠标移到条带热区即自显，这正是右/下侧追加条的显现方式 */
+/* 追加 + 条带：下缘全表宽横条 / 右缘全表高竖条。位置与长边（横条的宽 /
+    竖条的高）由 JS 按表格矩形写内联，厚度取 --table-handler-size（与行列
+    把手同源，layout.css 一处定义全局生效）。
+    覆盖共通默认的 visibility hidden——隐藏但可命中（opacity 0 常驻），
+    鼠标移到条带热区即自显，这正是右/下侧追加条的显现方式 */
 .md-editor-table-append-row,
 .md-editor-table-append-col {
   cursor: pointer;
   color: #6b7280;
   visibility: visible
+}
+.md-editor-table-append-row {
+  height: var(--table-handler-size)
+}
+.md-editor-table-append-col {
+  width: var(--table-handler-size)
 }
 /* + 追加条 hover 自显（条带贴表缘外侧，热区即条带自身） */
 .md-editor-table-append-row:hover,

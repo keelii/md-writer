@@ -36,6 +36,7 @@
 import { Node as PMNode } from "prosemirror-model"
 import { Plugin, PluginKey, Selection } from "prosemirror-state"
 import { Decoration, DecorationSet } from "prosemirror-view"
+import { SvgIcon } from "../icons"
 import { NodeViewContext } from "./nodeviews/types"
 import {
   applyTableMutationWithContext,
@@ -52,19 +53,59 @@ import "./table-handles.css"
 var DRAG_THRESHOLD = 4
 // 拖动落点高亮类：写在目标行/列的各 td/th 上，CSS 用 :after 伪元素画高亮
 var DROP_TARGET_CLASS = "md-editor-table-drop-target"
-// 追加条带厚度（px）：下缘全宽横条的高度 / 右缘全高竖条的宽度
-var APPEND_STRIP = 20
-// 追加条带与表格边缘的间隙（px）
+// 追加条带与表格边缘的间隙（px）。条带厚度不在此定义——由 CSS 取
+// --table-handler-size（与行列把手同源，layout.css 一处定义全局生效）
 var APPEND_GAP = 2
-
-var COL_GRIP_ICON = '<svg width="15" height="3" fill="currentColor" viewBox="0 0 15 3" xmlns="http://www.w3.org/2000/svg"><circle cx="1.5" cy="1.5" r="1.5"></circle><circle cx="7.5" cy="1.5" r="1.5"></circle><circle cx="13.5" cy="1.5" r="1.5"></circle></svg>'
-var ROW_GRIP_ICON = '<svg width="3" height="15" fill="currentColor" viewBox="0 0 3 15" xmlns="http://www.w3.org/2000/svg"><circle cy="1.5" cx="1.5" r="1.5"></circle><circle cy="7.5" cx="1.5" r="1.5"></circle><circle cy="13.5" cx="1.5" r="1.5"></circle></svg>'
-var PLUS_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" xmlns="http://www.w3.org/2000/svg"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>'
 
 // mutation / 事件是否涉及把手节点（grip 在 td/th 里、+ 按钮在 overlay 里，
 // 都带 md-editor-table-handle 类）。removedNodes 已脱离文档，只查自身类名
 function isHandleNode(node: Node): boolean {
   return node instanceof Element && node.classList.contains("md-editor-table-handle")
+}
+
+// cell / table 两级 ignoreMutation 的共享判定：
+// - selection 型 mutation（TS 的 MutationRecordType 未收录）交给 PM 自己处理；
+// - childList 中插入/移除 handle 节点、target 自身是 handle 节点的 mutation 一律
+//   忽略——PM 若把它们当内容变化处理，readDOMChange 会把 grip div 一起解析重读，
+//   表格内容会被破坏；真正的用户编辑 mutation 不涉及 handle 节点，照常由 PM 处理。
+// 两级各自的特例通过 opts 表达：
+// - ownDom（cell 级）：拖动实时反馈直写 td/th 的 style.transform（平移跟随/让位）
+//   与拖动落点 drop-target 类，这类 attribute mutation 必须忽略——PM 把它当内容
+//   变化会重读重绘单元格（渲染进来的 grip 会被一并清掉）。tr 上不能写 transform
+//   的原因同此：tr 没有 NodeView，其 mutation 无人忽略；
+// - shell + table（table 级）：shell 是把手层自管 DOM，其中任何 mutation 都不能
+//   让 PM 重读/重绘整个 table 节点（否则把手会被清掉）。
+function shouldIgnoreHandleMutation(
+  mutation: MutationRecord,
+  opts: { ownDom?: HTMLElement; shell?: HTMLElement; table?: HTMLElement } = {}
+): boolean {
+  var type: string = mutation.type
+  if (type === "selection") {
+    return false
+  }
+  if (type === "childList") {
+    for (var i = 0; i < mutation.addedNodes.length; i += 1) {
+      if (isHandleNode(mutation.addedNodes[i])) {
+        return true
+      }
+    }
+    for (var j = 0; j < mutation.removedNodes.length; j += 1) {
+      if (isHandleNode(mutation.removedNodes[j])) {
+        return true
+      }
+    }
+  }
+  if (type === "attributes" && opts.ownDom && mutation.target === opts.ownDom &&
+      (mutation.attributeName === "style" || mutation.attributeName === "class")) {
+    return true
+  }
+  if (opts.shell && opts.table) {
+    var target = mutation.target
+    if (target instanceof Node && opts.shell.contains(target) && !opts.table.contains(target)) {
+      return true
+    }
+  }
+  return isHandleNode(mutation.target)
 }
 
 // cell（table_cell / table_header）级轻量 NodeView。必须存在的原因：grip
@@ -93,31 +134,7 @@ export function createHandleAwareCellNodeView(node: PMNode) {
       return true
     },
     ignoreMutation: function (mutation: MutationRecord) {
-      var type: string = mutation.type
-      if (type === "selection") {
-        return false
-      }
-      if (type === "childList") {
-        for (var i = 0; i < mutation.addedNodes.length; i += 1) {
-          if (isHandleNode(mutation.addedNodes[i])) {
-            return true
-          }
-        }
-        for (var j = 0; j < mutation.removedNodes.length; j += 1) {
-          if (isHandleNode(mutation.removedNodes[j])) {
-            return true
-          }
-        }
-      }
-      // 拖动实时反馈直写 td/th 的 style.transform（平移跟随/让位）与拖动
-      // 落点 drop-target 类，这类 attribute mutation 必须忽略——PM 把它当
-      // 内容变化会重读重绘单元格（渲染进来的 grip 会被一并清掉）。tr 上
-      // 不能写 transform 的原因同此：tr 没有 NodeView，其 mutation 无人忽略
-      if (type === "attributes" && mutation.target === dom &&
-          (mutation.attributeName === "style" || mutation.attributeName === "class")) {
-        return true
-      }
-      return isHandleNode(mutation.target)
+      return shouldIgnoreHandleMutation(mutation, { ownDom: dom })
     },
     stopEvent: function (event: Event) {
       var target = event.target
@@ -278,7 +295,7 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
 
   // 把手几何：grip 的定位全交给 CSS（负偏移到表格外侧），这里只写
   // + 追加条带的几何（相对 overlay 原点换算——shell 是块级容器可能比 table
-  // 宽，不能用 table 左上角当原点）：
+  // 宽，不能用 table 左上角当原点；条带厚度归 CSS，取 --table-handler-size）：
   // - 追加行条：表格下缘全表宽横条；追加列条：右缘全表高竖条。
   // 无布局环境（jsdom）矩形全 0，直接跳过（几何交给真实浏览器渲染时再写）。
   function applyHandleGeometry() {
@@ -300,13 +317,11 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
       appendRow.style.left = (tableRect.left - overlayRect.left) + "px"
       appendRow.style.top = (tableRect.bottom - overlayRect.top + APPEND_GAP) + "px"
       appendRow.style.width = tableRect.width + "px"
-      appendRow.style.height = APPEND_STRIP + "px"
     }
     var appendCol = overlay.querySelector(".md-editor-table-append-col") as HTMLElement | null
     if (appendCol) {
       appendCol.style.left = (tableRect.right - overlayRect.left + APPEND_GAP) + "px"
       appendCol.style.top = (tableRect.top - overlayRect.top) + "px"
-      appendCol.style.width = APPEND_STRIP + "px"
       appendCol.style.height = tableRect.height + "px"
     }
   }
@@ -372,7 +387,7 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
       colGrip.setAttribute("data-kind", "col")
       colGrip.setAttribute("data-index", String(col))
       colGrip.setAttribute("title", "拖动移动列，单击定位")
-      colGrip.innerHTML = '<span class="md-editor-table-handle-icon">' + COL_GRIP_ICON + "</span>"
+      colGrip.innerHTML = '<span class="md-editor-table-handle-icon">' + SvgIcon.tableColGrip + "</span>"
       cellEls[col].appendChild(colGrip)
     }
     for (var row = 0; row < rowGripCount && row < rowEls.length; row += 1) {
@@ -385,7 +400,7 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
       rowGrip.setAttribute("data-kind", "row")
       rowGrip.setAttribute("data-index", String(row))
       rowGrip.setAttribute("title", "拖动移动行，单击定位")
-      rowGrip.innerHTML = '<span class="md-editor-table-handle-icon">' + ROW_GRIP_ICON + "</span>"
+      rowGrip.innerHTML = '<span class="md-editor-table-handle-icon">' + SvgIcon.tableRowGrip + "</span>"
       firstCell.appendChild(rowGrip)
     }
 
@@ -393,14 +408,14 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
     appendRow.className = "md-editor-table-handle md-editor-table-append-row"
     appendRow.setAttribute("data-kind", "row")
     appendRow.setAttribute("title", "追加一行")
-    appendRow.innerHTML = PLUS_ICON
+    appendRow.innerHTML = SvgIcon.tablePlus
     overlay.appendChild(appendRow)
 
     var appendCol = document.createElement("div")
     appendCol.className = "md-editor-table-handle md-editor-table-append-col"
     appendCol.setAttribute("data-kind", "col")
     appendCol.setAttribute("title", "追加一列")
-    appendCol.innerHTML = PLUS_ICON
+    appendCol.innerHTML = SvgIcon.tablePlus
     overlay.appendChild(appendCol)
 
     scheduleMeasure()
@@ -778,36 +793,10 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
       var el = target instanceof Element ? target : target instanceof Node ? target.parentElement : null
       return !!(el && el.closest(".md-editor-table-handle") && shell.contains(el))
     },
-    // overlay/shell 是把手层自管的 DOM：其中任何 mutation 都不能让 PM
-    // 重读/重绘整个 table 节点（否则把手会被清掉）。grip 渲染进 td/th 后，
-    // table 内涉及 handle 节点的 mutation（append / 移除 / active class 切换）
-    // 也必须忽略——PM 若把这些当内容变化处理，readDOMChange 会把 grip div
-    // 一起解析重读，表格内容会被破坏；真正的用户编辑 mutation 不涉及 handle
-    // 节点，照常由 PM 处理。
+    // 各分支的忽略原因详见 shouldIgnoreHandleMutation 的注释；本级别额外
+    // 忽略 shell（把手层自管 DOM）内的所有 mutation。
     ignoreMutation: function (mutation: MutationRecord) {
-      // 浏览器有 selection 型 mutation（TS 的 MutationRecordType 未收录），
-      // 选区类 mutation 交给 PM 自己处理
-      var type: string = mutation.type
-      if (type === "selection") {
-        return false
-      }
-      var target = mutation.target
-      if (target instanceof Node && shell.contains(target) && !table.contains(target)) {
-        return true
-      }
-      if (type === "childList") {
-        for (var i = 0; i < mutation.addedNodes.length; i += 1) {
-          if (isHandleNode(mutation.addedNodes[i])) {
-            return true
-          }
-        }
-        for (var j = 0; j < mutation.removedNodes.length; j += 1) {
-          if (isHandleNode(mutation.removedNodes[j])) {
-            return true
-          }
-        }
-      }
-      return isHandleNode(target)
+      return shouldIgnoreHandleMutation(mutation, { shell: shell, table: table })
     },
     destroy: function () {
       document.removeEventListener("pointerdown", onDocPointerDown)

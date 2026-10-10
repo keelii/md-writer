@@ -29,6 +29,10 @@ export interface MDWriterInitOptions {
   mermaidAssets?: string[];
   katexAssets?: string[];
   onImageUpload?: (file: File) => Promise<ImageUploadResult> | ImageUploadResult;
+  // 持久化存储源（当前仅支持 "localStorage"）：
+  //   内容 —— md-writer:content（markdown 源），恢复时优先于 initialMarkdown
+  //   视图状态 —— md-writer:state（源码态 / 目录 / 韵律网格），恢复时优先于 default* 选项
+  storage?: "localStorage";
 }
 
 export interface MDWriterInstance {
