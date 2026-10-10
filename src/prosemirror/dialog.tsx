@@ -16,6 +16,8 @@ export interface RunDialogOptions {
   confirmLabel?: string;
   cancelLabel?: string;
   buttonExtra?: Element;
+  // 弹窗内容宽度（如 "640px"），以 max-width 应用：视口更窄时自动收缩
+  width?: string;
   opener?: Element | null;
   focusSelector?: string;
   // 取值注入：默认经 data-role~="md-editor-dialog-value" 取 .value（input/textarea），
@@ -35,7 +37,13 @@ function buildDialogDom(options: RunDialogOptions): HTMLElement {
   var bodyEl = <div className="ui-dialog-body">{options.bodyElement}</div>
   var buttonExtra = options.buttonExtra || ""
   return (
-    <div className="ui-dialog" role="dialog" aria-modal="true" aria-label={ariaLabel}>
+    <div
+      className="ui-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-label={ariaLabel}
+      style={options.width ? { maxWidth: options.width } : undefined}
+    >
       <div className="ui-dialog-header">
         <div className="ui-dialog-title">{options.title}</div>
         <button
@@ -81,9 +89,6 @@ function ensureDialogBackdrop(options: RunDialogOptions): HTMLElement {
 }
 
 export function openManagedDialog(dialogID: string, opener: Element | null) {
-  if (window.DashAppUI && window.DashAppUI.dialog && typeof window.DashAppUI.dialog.open === "function") {
-    return !!window.DashAppUI.dialog.open(dialogID, opener || null)
-  }
   var backdrop = document.getElementById(dialogID)
   if (!backdrop) {
     return false
@@ -93,9 +98,6 @@ export function openManagedDialog(dialogID: string, opener: Element | null) {
 }
 
 export function closeManagedDialog(dialogID: string) {
-  if (window.DashAppUI && window.DashAppUI.dialog && typeof window.DashAppUI.dialog.close === "function") {
-    return !!window.DashAppUI.dialog.close(dialogID)
-  }
   var backdrop = document.getElementById(dialogID)
   if (!backdrop) {
     return false
@@ -125,7 +127,7 @@ export function runManagedDialog(options: RunDialogOptions): Promise<DialogResul
 
     function cleanup() {
       backdrop.removeEventListener("click", onBackdropClick, true)
-      backdrop.removeEventListener("keydown", onBackdropKeydown, true)
+      document.removeEventListener("keydown", onBackdropKeydown, true)
       if (activeDialogFinish === finish) {
         activeDialogFinish = null
       }
@@ -185,7 +187,7 @@ export function runManagedDialog(options: RunDialogOptions): Promise<DialogResul
       }
       if (event.key === "Enter") {
         var target = event.target as HTMLElement | null
-        if (target && target.tagName === "INPUT") {
+        if (target && target.tagName === "INPUT" && backdrop.contains(target)) {
           event.preventDefault()
           finish("confirm", getDialogValue())
         }
@@ -193,7 +195,7 @@ export function runManagedDialog(options: RunDialogOptions): Promise<DialogResul
     }
 
     backdrop.addEventListener("click", onBackdropClick, true)
-    backdrop.addEventListener("keydown", onBackdropKeydown, true)
+    document.addEventListener("keydown", onBackdropKeydown, true)
     activeDialogFinish = finish
 
     if (typeof options.onOpen === "function") {

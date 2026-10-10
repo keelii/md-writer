@@ -68,6 +68,10 @@
   outline: 2px solid #2563eb;
   outline-offset: -1px;
 }
+.md-editor-dialog .ui-dialog-button {
+  display: flex;
+  gap: 8px;
+}
 .md-editor-dialog .ui-dialog-footer {
   display: flex;
   justify-content: space-between;
@@ -110,11 +114,7 @@
 .md-editor-dialog .ui-file-pick:hover {
   background: #f3f4f6;
 }
-/* 源码编辑弹窗：加宽 + 等宽字体多行文本域 */
-#md-editor-source-dialog .ui-dialog {
-  max-width: 640px;
-}
-#md-editor-source-dialog .ui-dialog-body {
+/* 源码编辑弹窗：等宽字体多行文本域（宽度经 runManagedDialog 的 width 参数传入） */#md-editor-source-dialog .ui-dialog-body {
   max-height: 75vh;
   overflow-y: auto;
 }
@@ -170,11 +170,7 @@
   outline: 2px solid #2563eb;
   outline-offset: -1px;
 }
-/* 快捷键帮助弹窗：加宽 + 分组表格 */
-#md-editor-help-dialog .ui-dialog {
-  max-width: 640px;
-}
-#md-editor-help-dialog .ui-dialog-body {
+/* 快捷键帮助弹窗：分组表格（宽度经 runManagedDialog 的 width 参数传入） */#md-editor-help-dialog .ui-dialog-body {
   max-height: 60vh;
   overflow-y: auto;
   padding-top: 8px;

@@ -29430,17 +29430,29 @@ var MDWriter = (() => {
     var cancelLabel = options.cancelLabel || "\u53D6\u6D88";
     var bodyEl = /* @__PURE__ */ h("div", { className: "ui-dialog-body" }, options.bodyElement);
     var buttonExtra = options.buttonExtra || "";
-    return /* @__PURE__ */ h("div", { className: "ui-dialog", role: "dialog", "aria-modal": "true", "aria-label": ariaLabel }, /* @__PURE__ */ h("div", { className: "ui-dialog-header" }, /* @__PURE__ */ h("div", { className: "ui-dialog-title" }, options.title), /* @__PURE__ */ h(
-      "button",
+    return /* @__PURE__ */ h(
+      "div",
       {
-        type: "button",
-        className: "ui-icon-btn",
-        "data-role": "ui-dialog-close",
-        "aria-label": "\u5173\u95ED",
-        "data-title": "\u5173\u95ED",
-        innerHTML: SvgIcon.x
-      }
-    )), bodyEl, /* @__PURE__ */ h("div", { className: "ui-dialog-footer" }, /* @__PURE__ */ h("div", { className: "ui-dialog-button-extra" }, buttonExtra), /* @__PURE__ */ h("div", { className: "ui-dialog-button" }, /* @__PURE__ */ h("button", { type: "button", className: "ui-btn outline", "data-role": "md-editor-dialog-cancel ui-dialog-cancel" }, cancelLabel), /* @__PURE__ */ h("button", { type: "button", className: "ui-btn primary", "data-role": "md-editor-dialog-confirm" }, confirmLabel))));
+        className: "ui-dialog",
+        role: "dialog",
+        "aria-modal": "true",
+        "aria-label": ariaLabel,
+        style: options.width ? { maxWidth: options.width } : void 0
+      },
+      /* @__PURE__ */ h("div", { className: "ui-dialog-header" }, /* @__PURE__ */ h("div", { className: "ui-dialog-title" }, options.title), /* @__PURE__ */ h(
+        "button",
+        {
+          type: "button",
+          className: "ui-icon-btn",
+          "data-role": "ui-dialog-close",
+          "aria-label": "\u5173\u95ED",
+          "data-title": "\u5173\u95ED",
+          innerHTML: SvgIcon.x
+        }
+      )),
+      bodyEl,
+      /* @__PURE__ */ h("div", { className: "ui-dialog-footer" }, /* @__PURE__ */ h("div", { className: "ui-dialog-button-extra" }, buttonExtra), /* @__PURE__ */ h("div", { className: "ui-dialog-button" }, /* @__PURE__ */ h("button", { type: "button", className: "ui-btn outline", "data-role": "md-editor-dialog-cancel ui-dialog-cancel" }, cancelLabel), /* @__PURE__ */ h("button", { type: "button", className: "ui-btn primary", "data-role": "md-editor-dialog-confirm" }, confirmLabel)))
+    );
   }
   function ensureDialogBackdrop(options) {
     var backdrop = document.getElementById(options.id);
@@ -29463,9 +29475,6 @@ var MDWriter = (() => {
     return backdrop;
   }
   function openManagedDialog(dialogID, opener) {
-    if (window.DashAppUI && window.DashAppUI.dialog && typeof window.DashAppUI.dialog.open === "function") {
-      return !!window.DashAppUI.dialog.open(dialogID, opener || null);
-    }
     var backdrop = document.getElementById(dialogID);
     if (!backdrop) {
       return false;
@@ -29474,9 +29483,6 @@ var MDWriter = (() => {
     return true;
   }
   function closeManagedDialog(dialogID) {
-    if (window.DashAppUI && window.DashAppUI.dialog && typeof window.DashAppUI.dialog.close === "function") {
-      return !!window.DashAppUI.dialog.close(dialogID);
-    }
     var backdrop = document.getElementById(dialogID);
     if (!backdrop) {
       return false;
@@ -29501,7 +29507,7 @@ var MDWriter = (() => {
       }
       function cleanup() {
         backdrop.removeEventListener("click", onBackdropClick, true);
-        backdrop.removeEventListener("keydown", onBackdropKeydown, true);
+        document.removeEventListener("keydown", onBackdropKeydown, true);
         if (activeDialogFinish === finish) {
           activeDialogFinish = null;
         }
@@ -29554,14 +29560,14 @@ var MDWriter = (() => {
         }
         if (event.key === "Enter") {
           var target = event.target;
-          if (target && target.tagName === "INPUT") {
+          if (target && target.tagName === "INPUT" && backdrop.contains(target)) {
             event.preventDefault();
             finish("confirm", getDialogValue());
           }
         }
       }
       backdrop.addEventListener("click", onBackdropClick, true);
-      backdrop.addEventListener("keydown", onBackdropKeydown, true);
+      document.addEventListener("keydown", onBackdropKeydown, true);
       activeDialogFinish = finish;
       if (typeof options.onOpen === "function") {
         options.onOpen(backdrop);
@@ -54768,6 +54774,7 @@ var MDWriter = (() => {
       id: SOURCE_DIALOG_ID,
       title,
       confirmLabel: "\u4FDD\u5B58",
+      width: "640px",
       opener: opener || null,
       focusSelector: ".cm-editor .cm-content",
       bodyElement: /* @__PURE__ */ h("div", { className: "md-editor-source-layout" }, /* @__PURE__ */ h("label", { className: "ui-field-label", htmlFor: "md-editor-source-editor" }, "\u6E90\u7801"), /* @__PURE__ */ h(
@@ -55475,7 +55482,8 @@ var MDWriter = (() => {
       items: [
         ["Shift+Enter / Alt+Enter", "\u8F6F\u56DE\u8F66\uFF1A\u6BB5\u843D\u6216\u8868\u683C\u5355\u5143\u683C\u5185\u63D2\u5165\u6362\u884C\uFF0C\u4E0D\u62C6\u5206\u6BB5\u843D"],
         ["Meta+Enter", "\u8DF3\u51FA\u5F53\u524D\u5757\uFF08\u8868\u683C / \u5F15\u7528 / \u5217\u8868 / \u4EE3\u7801\u5757 / \u6807\u9898\uFF09\uFF0C\u5728\u5757\u540E\u65B0\u5EFA\u6BB5\u843D"],
-        ["Enter", "\u8868\u683C\u672B\u683C\u65B0\u5EFA\u4E00\u884C\uFF1B\u975E\u672B\u683C\u8F6F\u56DE\u8F66\uFF1B\u5217\u8868\u4E2D\u62C6\u5206\u5217\u8868\u9879"]
+        ["Enter", "\u8868\u683C\u672B\u683C\u65B0\u5EFA\u4E00\u884C\uFF1B\u975E\u672B\u683C\u8F6F\u56DE\u8F66\uFF1B\u5217\u8868\u4E2D\u62C6\u5206\u5217\u8868\u9879"],
+        ["\u884C\u5185\u5143\u7D20\u672B\u5C3E\u8FDE\u8F93\u4E24\u4E2A\u7A7A\u683C", "\u9000\u51FA\u5F53\u524D\u884C\u5185\u683C\u5F0F\uFF08\u52A0\u7C97 / \u659C\u4F53 / \u884C\u5185\u4EE3\u7801\u7B49\uFF09"]
       ]
     },
     {
@@ -55493,15 +55501,15 @@ var MDWriter = (() => {
       title: "\u5217\u8868\u4E0E\u4EE3\u7801\u5757",
       items: [
         ["Tab / Shift+Tab", "\u5217\u8868\u9879\u964D\u7EA7 / \u5347\u7EA7\uFF1B\u4EE3\u7801\u5757\u5185\u7F29\u8FDB / \u53CD\u7F29\u8FDB"],
-        ["Backspace / Delete", "\u5220\u9664\u6574\u5757\u9884\u89C8\uFF08$$ \u516C\u5F0F / iframe / frontmatter / Mermaid \u56FE\uFF09"],
+        ["Backspace / Delete", "\u5220\u9664\u6574\u5757\u9884\u89C8\uFF08$$ \u516C\u5F0F / iframe / frontmatter / Mermaid \u56FE / SVG \u5757\uFF09"],
         ["\u9F20\u6807\u60AC\u505C \xB7 \u5220\u9664\u6309\u94AE", "\u9884\u89C8\u5757\u5DE6\u4FA7\u51FA\u73B0\u5220\u9664\u6309\u94AE\uFF0C\u70B9\u51FB\u5220\u9664\u6574\u5757"]
       ]
     },
     {
       title: "\u9884\u89C8\u4EA4\u4E92",
       items: [
-        ["Meta+\u6EDA\u8F6E", "\u7F29\u653E Mermaid \u56FE\u8868"],
-        ["Esc", "\u9000\u51FA Mermaid \u5168\u5C4F\u9884\u89C8"]
+        ["Meta+\u6EDA\u8F6E", "\u7F29\u653E\u5168\u5C4F\u9884\u89C8\u4E2D\u7684 Mermaid \u56FE / SVG \u5757"],
+        ["Esc", "\u9000\u51FA\u5168\u5C4F\u9884\u89C8\uFF08Mermaid \u56FE / SVG \u5757\uFF09"]
       ]
     }
   ];
@@ -55534,6 +55542,7 @@ var MDWriter = (() => {
       id: "md-editor-help-dialog",
       title: "\u5FEB\u6377\u952E\u5E2E\u52A9",
       bodyElement: buildHelpBody(),
+      width: "640px",
       buttonExtra: /* @__PURE__ */ h("small", null, /* @__PURE__ */ h("a", { href: "https://user-images.githubusercontent.com/458894/32358969-179e7a28-c085-11e7-882a-485164168f74.png", target: "_blank" }, "buy me a coffee"), " \u2764\uFE0F"),
       confirmLabel: "\u5173\u95ED",
       cancelLabel: "\u5173\u95ED",

@@ -79,6 +79,7 @@ export function requestSourceByDialog(title: string, currentSource: string, open
     id: SOURCE_DIALOG_ID,
     title: title,
     confirmLabel: "保存",
+    width: "640px",
     opener: opener || null,
     focusSelector: ".cm-editor .cm-content",
     bodyElement: (

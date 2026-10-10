@@ -96,7 +96,7 @@ assert(
 
 // 表格行结构：每行 2 个 td，快捷键格全部子元素均为 kbd
 var rows = findDescendants(body, "tr")
-assert(rows.length === 19, "共 19 行快捷键（实际: " + rows.length + "）")
+assert(rows.length === 20, "共 20 行快捷键（实际: " + rows.length + "）")
 function rowTds(row: FakeNode) {
   return row.children.filter(function (c) {
     return c.nodeType === 1 && c.tagName === "td"
@@ -149,10 +149,16 @@ var simpleRow = rows.filter(function (row) {
   return rowTds(row)[0].textContent === "Meta + Z"
 })[0]
 assert(!!simpleRow && rowKeyKbds(simpleRow).length === 2, "Meta+Z 拆为 2 个 kbd")
-var literalRow = rows.filter(function (row) {
-  return rowTds(row)[0].textContent === "末尾连输两个空格"
-})[0]
-assert(!!literalRow && rowKeyKbds(literalRow).length === 1, "无分隔符条目仍是单个 kbd")
+var literalRows = rows.filter(function (row) {
+  return rowTds(row)[0].textContent === "行内元素末尾连输两个空格"
+    || rowTds(row)[0].textContent === "末尾连输两个空格"
+})
+assert(
+  literalRows.length === 2 && literalRows.every(function (row) {
+    return rowKeyKbds(row).length === 1
+  }),
+  "无分隔符条目（双空格 ×2）仍是单个 kbd"
+)
 
 // 文本内容：分组 + 显性快捷键
 var text = body.textContent
@@ -172,7 +178,9 @@ assert(text.indexOf("Backspace") >= 0, "Backspace 删行/删表")
 assert(text.indexOf("Shift + Enter / Alt + Enter") >= 0, "软回车 Shift+Enter / Alt+Enter")
 assert(text.indexOf("软回车") >= 0, "软回车描述")
 assert(text.indexOf("末尾连输两个空格") >= 0, "双空格退出表格")
-assert(text.indexOf("Meta + 滚轮") >= 0, "Mermaid 缩放 Meta+滚轮")
+assert(text.indexOf("退出当前行内格式") >= 0, "双空格退出行内格式")
+assert(text.indexOf("SVG 块") >= 0, "SVG 块整块删除与预览交互")
+assert(text.indexOf("Meta + 滚轮") >= 0, "预览缩放 Meta+滚轮")
 assert(text.indexOf("Esc") >= 0, "Esc 退出全屏")
 
 if (failures > 0) {

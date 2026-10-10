@@ -24,7 +24,8 @@ var helpSections: HelpSection[] = [
     items: [
       ["Shift+Enter / Alt+Enter", "软回车：段落或表格单元格内插入换行，不拆分段落"],
       ["Meta+Enter", "跳出当前块（表格 / 引用 / 列表 / 代码块 / 标题），在块后新建段落"],
-      ["Enter", "表格末格新建一行；非末格软回车；列表中拆分列表项"]
+      ["Enter", "表格末格新建一行；非末格软回车；列表中拆分列表项"],
+      ["行内元素末尾连输两个空格", "退出当前行内格式（加粗 / 斜体 / 行内代码等）"]
     ]
   },
   {
@@ -42,15 +43,15 @@ var helpSections: HelpSection[] = [
     title: "列表与代码块",
     items: [
       ["Tab / Shift+Tab", "列表项降级 / 升级；代码块内缩进 / 反缩进"],
-      ["Backspace / Delete", "删除整块预览（$$ 公式 / iframe / frontmatter / Mermaid 图）"],
+      ["Backspace / Delete", "删除整块预览（$$ 公式 / iframe / frontmatter / Mermaid 图 / SVG 块）"],
       ["鼠标悬停 · 删除按钮", "预览块左侧出现删除按钮，点击删除整块"]
     ]
   },
   {
     title: "预览交互",
     items: [
-      ["Meta+滚轮", "缩放 Mermaid 图表"],
-      ["Esc", "退出 Mermaid 全屏预览"]
+      ["Meta+滚轮", "缩放全屏预览中的 Mermaid 图 / SVG 块"],
+      ["Esc", "退出全屏预览（Mermaid 图 / SVG 块）"]
     ]
   }
 ]
@@ -107,6 +108,7 @@ export function openHelpDialog(opener: Element | null) {
     id: "md-editor-help-dialog",
     title: "快捷键帮助",
     bodyElement: buildHelpBody(),
+    width: "640px",
     buttonExtra: <small><a href="https://user-images.githubusercontent.com/458894/32358969-179e7a28-c085-11e7-882a-485164168f74.png" target="_blank">buy me a coffee</a> ❤️</small>,
     confirmLabel: "关闭",
     cancelLabel: "关闭",

@@ -25,6 +25,7 @@ class FakeElement {
   parent: FakeElement | null
   listeners: Record<string, Array<(event: any) => void>>
   value: string
+  style: { setProperty: (name: string, value: string) => void }
 
   constructor(tagName: string, nodeType: number, text?: string) {
     this.tagName = tagName
@@ -35,6 +36,13 @@ class FakeElement {
     this.parent = null
     this.listeners = {}
     this.value = ""
+    var self = this
+    this.style = {
+      setProperty: function (name: string, value: string) {
+        var prev = self.attrs["style"]
+        self.attrs["style"] = (prev ? prev + "; " : "") + name + ": " + value
+      }
+    }
   }
 
   setAttribute(name: string, value: string) {
@@ -166,6 +174,7 @@ class FakeElement {
 }
 
 var registered: FakeElement[] = []
+var documentListeners: { [type: string]: Array<(event: any) => void> } = {}
 
 ;(globalThis as any).document = {
   createElement: function (tag: string) {
@@ -188,6 +197,19 @@ var registered: FakeElement[] = []
   querySelectorAll: function () {
     return [] as FakeElement[]
   },
+  addEventListener: function (type: string, fn: (event: any) => void) {
+    if (!documentListeners[type]) {
+      documentListeners[type] = []
+    }
+    documentListeners[type].push(fn)
+  },
+  removeEventListener: function (type: string, fn: (event: any) => void) {
+    var list = documentListeners[type] || []
+    var index = list.indexOf(fn)
+    if (index >= 0) {
+      list.splice(index, 1)
+    }
+  },
   body: {
     appendChild: function (el: FakeElement) {
       registered.push(el)
@@ -196,7 +218,7 @@ var registered: FakeElement[] = []
   }
 }
 
-// dialog 基建使用 window.DashAppUI（宿主 UI 框架，测试环境无）与 window.setTimeout
+// dialog 基建使用 window.setTimeout
 ;(globalThis as any).window = globalThis
 
 var failures = 0
@@ -347,6 +369,11 @@ async function main() {
   }
   var confirmBtn = backdrop && backdrop.querySelector('[data-role~="md-editor-dialog-confirm"]')
   assert(!!confirmBtn, "dialog has confirm button")
+  var dialogEl = backdrop && backdrop.querySelector('[role~="dialog"]')
+  assert(
+    !!dialogEl && dialogEl.getAttribute("style") === "max-width: 640px",
+    "dialog width applied as max-width: 640px（实际: " + (dialogEl ? dialogEl.getAttribute("style") : "null") + "）"
+  )
   if (backdrop && confirmBtn) {
     var clicks = backdrop.listeners["click"] || []
     for (var i = 0; i < clicks.length; i += 1) {
@@ -370,6 +397,20 @@ async function main() {
   }
   await new Promise(function (resolve) { setTimeout(resolve, 20) })
   assertEqual((view2.state.doc.firstChild as PMNode).textContent, mathSource, "cancel keeps source unchanged")
+
+  // Esc 路径：keydown 注册在 document 上，焦点逸出到 body 也能取消
+  var view3 = createFakeView(mathDoc)
+  editPreviewBlockSource(view3, 0, null)
+  assert(!!(globalThis as any).document.getElementById("md-editor-source-dialog"), "esc dialog backdrop created")
+  var keydowns = documentListeners["keydown"] || []
+  assert(keydowns.length > 0, "document keydown listener registered")
+  var bodyNode = { tagName: "BODY" }
+  for (var k = 0; k < keydowns.length; k += 1) {
+    keydowns[k]({ key: "Escape", target: bodyNode, preventDefault: function () {} })
+  }
+  await new Promise(function (resolve) { setTimeout(resolve, 20) })
+  assertEqual((view3.state.doc.firstChild as PMNode).textContent, mathSource, "escape keeps source unchanged")
+  assertEqual(documentListeners["keydown"] ? documentListeners["keydown"].length : 0, 0, "document keydown listener removed on close")
 
   // mermaid 弹窗路径：编辑器预填 mermaid 源码
   var mermaidView = createFakeView(mermaidDoc)

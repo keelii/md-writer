@@ -141,11 +141,5 @@ declare global {
     katex?: {
       render: (expression: string, element: HTMLElement, options?: Record<string, unknown>) => void;
     };
-    DashAppUI?: {
-      dialog?: {
-        open: (dialogID: string, opener: Element | null) => boolean;
-        close: (dialogID: string) => boolean;
-      };
-    };
   }
 }

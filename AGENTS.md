@@ -76,7 +76,7 @@ Widget 不默认要求「先选中再交互」。Widget 的原生交互由具体
 
 ### 1. 不做环境存在性判断
 
-禁止 `typeof window === "undefined"` 之类守卫，已有的全部删掉。新代码直接用 `window` / `document` / `navigator`。对可选宿主能力（如 `window.DashAppUI`、`navigator.clipboard`）保留存在性检查即可，但不要外层再包 `typeof window`。
+禁止 `typeof window === "undefined"` 之类守卫，已有的全部删掉。新代码直接用 `window` / `document` / `navigator`。对可选宿主能力（如 `navigator.clipboard`）保留存在性检查即可，但不要外层再包 `typeof window`。
 
 ### 2. 构建 DOM 一律用 JSX
 
