@@ -634,11 +634,29 @@ function getMaxTableColumns(tableJSON: JSONNodeData) {
   return maxCount
 }
 
-function createEmptyCellJSON(typeName: string): JSONNodeData {
-  return {
+// 取第 col 列 cell 的列对齐（JSON 形态），缺列/无效值返回 null。
+// 加行时新行单元格继承所在列对齐，保证与表头分隔行声明一致。
+function cellColumnAlign(cells: JSONNodeData[], col: number): string | null {
+  var cell = cells[col]
+  if (!cell || !cell.attrs) {
+    return null
+  }
+  var align = cell.attrs.align ? String(cell.attrs.align) : ""
+  if (align !== "left" && align !== "center" && align !== "right") {
+    return null
+  }
+  return align
+}
+
+function createEmptyCellJSON(typeName: string, align?: string | null): JSONNodeData {
+  var cell: JSONNodeData = {
     type: typeName || "table_cell",
     content: []
   }
+  if (align === "left" || align === "center" || align === "right") {
+    cell.attrs = {align: align}
+  }
+  return cell
 }
 
 function ensureRowCells(rowJSON: JSONNodeData, cellType: string) {
@@ -826,7 +844,8 @@ export function mutateTableAddRow(tableJSON: JSONNodeData, context: TableContext
 
   var newRowCells: JSONNodeData[] = []
   for (var col = 0; col < colCount; col += 1) {
-    newRowCells.push(createEmptyCellJSON("table_cell"))
+    // 新行单元格继承基行走对应列的对齐（加列默认无对齐，靠编辑源码设置）
+    newRowCells.push(createEmptyCellJSON("table_cell", cellColumnAlign(baseCells, col)))
   }
   var newRow = {
     type: "table_row",

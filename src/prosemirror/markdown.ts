@@ -44,6 +44,27 @@ type MarkdownSerializerStateCompat = MarkdownSerializerState & {
 };
 type MarkdownSerializerStateCompatConstructor = new (nodes: unknown, marks: unknown, options: unknown) => MarkdownSerializerStateCompat;
 
+// markdown-it 表格规则把列对齐（GFM 分隔行 :--- / :---: / ---:）以
+// text-align 写进该列每个 th/td open token 的 attrs，这里提取成 cell 的
+// align attr（left/center/right，null 为默认）。
+function tableAlignFromToken(token: MarkdownItToken): {align: string | null} {
+  var attrs = token.attrs
+  if (!attrs) {
+    return {align: null}
+  }
+  for (var i = 0; i < attrs.length; i += 1) {
+    var pair = attrs[i]
+    if (!pair || pair[0] !== "style") {
+      continue
+    }
+    var match = /text-align\s*:\s*(left|center|right)\s*(?:;|$)/i.exec(String(pair[1]))
+    if (match) {
+      return {align: match[1].toLowerCase()}
+    }
+  }
+  return {align: null}
+}
+
 export function buildMarkdownParser(schema: Schema): MarkdownParser {
   var tableTokens = {
     table: {block: "table"},
@@ -51,8 +72,8 @@ export function buildMarkdownParser(schema: Schema): MarkdownParser {
     tbody: {block: "table_body"},
     tfoot: {block: "table_body"},
     tr: {block: "table_row"},
-    th: {block: "table_header"},
-    td: {block: "table_cell"}
+    th: {block: "table_header", getAttrs: tableAlignFromToken},
+    td: {block: "table_cell", getAttrs: tableAlignFromToken}
   }
   var tokens = Object.assign({}, defaultMarkdownParser.tokens, tableTokens, {
     s: {mark: "strike"}
@@ -174,6 +195,20 @@ export function serializeNodeMarkdown(serializer: MarkdownSerializer, node: PMNo
   return state.out
 }
 
+// GFM 分隔符按列对齐还原：left → :---，center → :---:，right → ---:，默认 ---。
+function serializeTableDelimiter(align: string | null): string {
+  if (align === "left") {
+    return ":---"
+  }
+  if (align === "center") {
+    return ":---:"
+  }
+  if (align === "right") {
+    return "---:"
+  }
+  return "---"
+}
+
 export function buildMarkdownSerializer(_schema: Schema): MarkdownSerializer {
   var nodes = Object.assign({}, defaultMarkdownSerializer.nodes)
   nodes.table = function (state, node) {
@@ -224,9 +259,18 @@ export function buildMarkdownSerializer(_schema: Schema): MarkdownSerializer {
     }
 
     var headerRow = rowValues[0]
+    // 分隔行按列还原 GFM 对齐：对齐以表头行（rows[0]）各列 cell 的 align 为准，
+    // 与解析端“markdown-it 逐 cell 写 style”互为镜像；表头缺列时补位列为默认 ---。
+    var alignByCol: Array<string | null> = []
+    var headerNode = rows[0]
+    if (headerNode) {
+      headerNode.forEach(function (cell, _offset, index) {
+        alignByCol[index] = cell.attrs && cell.attrs.align ? String(cell.attrs.align) : null
+      })
+    }
     var delimiterRow: string[] = []
     for (var colIndex = 0; colIndex < colCount; colIndex += 1) {
-      delimiterRow.push("---")
+      delimiterRow.push(serializeTableDelimiter(alignByCol[colIndex]))
     }
 
     state.write("| " + headerRow.join(" | ") + " |")

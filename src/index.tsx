@@ -28,20 +28,20 @@ import {
 } from "./storage"
 import { h } from "./jsx"
 
-// // @ts-ignore
-// import "./styles/reset.css"
-// // @ts-ignore
-// import "./styles/layout.css"
-// // @ts-ignore
-// import "./styles/toolbar.css"
-// // @ts-ignore
-// import "./styles/themes/default.css"
-// // @ts-ignore
-// import "./styles/themes/classic.css"
-// // @ts-ignore
-// import "./styles/toc.css"
-// // @ts-ignore
-// import "./styles/print.css"
+// @ts-ignore
+import "./styles/reset.css"
+// @ts-ignore
+import "./styles/layout.css"
+// @ts-ignore
+import "./styles/toolbar.css"
+// @ts-ignore
+import "./styles/themes/default.css"
+// @ts-ignore
+import "./styles/themes/classic.css"
+// @ts-ignore
+import "./styles/toc.css"
+// @ts-ignore
+import "./styles/print.css"
 
 export function init(options?: MDWriterInitOptions): MDWriterInstance {
   var opts: MDWriterInitOptions = options || ({} as MDWriterInitOptions)

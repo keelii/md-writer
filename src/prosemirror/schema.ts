@@ -1,4 +1,4 @@
-import { DOMOutputSpec, NodeSpec, Schema } from "prosemirror-model";
+import { DOMOutputSpec, Node as PMNode, NodeSpec, Schema } from "prosemirror-model";
 import { schema as baseMarkdownSchema } from "prosemirror-markdown";
 
 export function buildSchema(): Schema {
@@ -36,19 +36,50 @@ export function buildSchema(): Schema {
     }
   }
 
+  // 表格单元格列对齐：GFM 分隔行的 :--- / :---: / ---: 在 markdown-it 解析后
+  // 落到该列每个 th/td 的 align attr（left/center/right，null 为默认）。
+  // 对齐存 cell 而非 table 节点：markdown-it 逐 cell 发 style attr，且
+  // 增删行/列的 JSON 变更（table.ts）无需回写表级数组，序列化端取表头行
+  // 各列 cell 的 align 还原分隔行。渲染端 toDOM 与 cell NodeView
+  // （table-handles.ts 的 createHandleAwareCellNodeView）都把它写成
+  // text-align 内联样式。
+  var cellAlignAttr = {
+    align: {default: null}
+  }
+
+  function tableCellAlignFromDOM(node: Node): {align: string | null} {
+    var el = node as HTMLElement
+    var value = el && el.style && el.style.textAlign ? String(el.style.textAlign).toLowerCase() : ""
+    if (value !== "left" && value !== "center" && value !== "right") {
+      return {align: null}
+    }
+    return {align: value}
+  }
+
+  function tableCellToDOM(tag: string, node: PMNode): DOMOutputSpec {
+    var align = node.attrs.align
+    var attrs: Record<string, string> = {class: "table-cell"}
+    if (align === "left" || align === "center" || align === "right") {
+      attrs.style = "text-align:" + align
+    }
+    return [tag, attrs, 0]
+  }
+
   var tableHeaderSpec: NodeSpec = {
     content: "inline*",
-    parseDOM: [{tag: "th"}],
-    toDOM: function (): DOMOutputSpec {
-      return ["th", {class: "table-cell"}, 0]
+    attrs: cellAlignAttr,
+    parseDOM: [{tag: "th", getAttrs: tableCellAlignFromDOM}],
+    toDOM: function (node: PMNode): DOMOutputSpec {
+      return tableCellToDOM("th", node)
     }
   }
 
   var tableCellSpec: NodeSpec = {
     content: "inline*",
-    parseDOM: [{tag: "td"}],
-    toDOM: function (): DOMOutputSpec {
-      return ["td", {class: "table-cell"}, 0]
+    attrs: cellAlignAttr,
+    parseDOM: [{tag: "td", getAttrs: tableCellAlignFromDOM}],
+    toDOM: function (node: PMNode): DOMOutputSpec {
+      return tableCellToDOM("td", node)
     }
   }
 

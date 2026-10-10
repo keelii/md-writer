@@ -70,7 +70,9 @@
    自身 hover 显现（见下） */
 .md-editor-table-active-row .md-editor-table-handle-row,
 .md-editor-table-active-col .md-editor-table-handle-col,
-.md-editor-table-handle-active {
+.md-editor-table-active-col .md-editor-table-handle-col-menu,
+.md-editor-table-handle-active,
+.md-editor-table-handle-col-menu-open {
   visibility: visible;
   opacity: 1
 }
@@ -83,7 +85,8 @@
 .md-editor-table-handles-dragging-row .md-editor-table-handle-row:not(.md-editor-table-handle-active),
 .md-editor-table-handles-dragging-col .md-editor-table-handle-col:not(.md-editor-table-handle-active),
 .md-editor-table-handles-dragging-row .md-editor-table-handle-col,
-.md-editor-table-handles-dragging-col .md-editor-table-handle-row {
+.md-editor-table-handles-dragging-col .md-editor-table-handle-row,
+.md-editor-table-handles-dragging .md-editor-table-handle-col-menu {
   visibility: hidden;
   opacity: 0
 }
@@ -107,6 +110,76 @@
   bottom: 0;
   width: var(--table-handler-size);
   z-index: 3
+}
+
+/* 列对齐菜单按钮：渲染进首行各 cell（与列 grip 同格），绝对定位到列 grip
+    条带的右端（表格上缘外侧右端），点击弹出对齐方式 dropdown。显现策略与
+    列 grip 一致（hover / 光标所在列 active 装饰 / 面板打开时 -open 常显）；
+    拖动中隐藏（上方 dragging 规则）。面板是此按钮的子节点，按钮的 opacity
+    会连带面板——-open 态保证面板打开期间按钮常显，面板不随按钮淡出 */
+.md-editor-table-handle-col-menu {
+  top: var(--table-handler-size-n);
+  right: 0;
+  width: var(--table-handler-size);
+  height: var(--table-handler-size);
+  cursor: pointer;
+  z-index: 4
+}
+
+/* 列对齐下拉面板：挂在菜单按钮下、向下弹出（覆盖表格首行区域，高 z-index
+    不需要 JS 写几何），样式对齐 block-op-menu 的下拉面板观感 */
+.md-editor-table-align-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 2px;
+  display: flex;
+  flex-direction: column;
+  min-width: 6em;
+  padding: 4px;
+  border-radius: 4px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  cursor: default;
+  z-index: 300
+}
+.md-editor-table-align-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap
+}
+.md-editor-table-align-item:hover {
+  background: rgba(0, 0, 0, 0.06)
+}
+/* 当前对齐项（表头行该列的 align）：与 block-op-menu 选中色一致 */
+.md-editor-table-align-item.md-editor-table-align-item-active {
+  color: #2563eb;
+  font-weight: 600
+}
+.md-editor-table-align-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex: none
+}
+.md-editor-table-align-item-icon svg {
+  display: block;
+  width: 14px;
+  height: 14px
 }
 
 /* grip 悬停（仅在已显现时可命中）：淡蓝高亮自身；单击选中保留（-selected）

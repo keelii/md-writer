@@ -58,10 +58,23 @@ var DROP_TARGET_CLASS = "md-editor-table-drop-target"
 var APPEND_GAP = 2
 
 // mutation / 事件是否涉及把手节点（grip 在 td/th 里、+ 按钮在 overlay 里，
-// 都带 md-editor-table-handle 类）。removedNodes 已脱离文档，只查自身类名
+// 都带 md-editor-table-handle 类；列对齐下拉面板是把手按钮的子节点，自身带
+// md-editor-table-align-menu 类一并纳入判定）。removedNodes 已脱离文档，只查自身类名
 function isHandleNode(node: Node): boolean {
-  return node instanceof Element && node.classList.contains("md-editor-table-handle")
+  if (!(node instanceof Element)) {
+    return false
+  }
+  return node.classList.contains("md-editor-table-handle") ||
+    node.classList.contains("md-editor-table-align-menu")
 }
+
+// 列对齐菜单候选项：value 为 null 表示默认（清除对齐，分隔行写 ---）
+var ALIGN_OPTIONS: Array<{value: string | null, label: string, icon: string}> = [
+  {value: null, label: "默认", icon: SvgIcon.menu},
+  {value: "left", label: "左对齐", icon: SvgIcon.alignLeft},
+  {value: "center", label: "居中", icon: SvgIcon.alignCenter},
+  {value: "right", label: "右对齐", icon: SvgIcon.alignRight}
+]
 
 // cell / table 两级 ignoreMutation 的共享判定：
 // - selection 型 mutation（TS 的 MutationRecordType 未收录）交给 PM 自己处理；
@@ -108,6 +121,17 @@ function shouldIgnoreHandleMutation(
   return isHandleNode(mutation.target)
 }
 
+// cell 列对齐 attr → text-align 内联样式（与 schema toDOM 一致）。
+// align 为空时清掉 textAlign，防上一节点残留。
+function applyCellAlignStyle(dom: HTMLElement, node: PMNode) {
+  var align = node.attrs && node.attrs.align ? String(node.attrs.align) : ""
+  if (align === "left" || align === "center" || align === "right") {
+    dom.style.textAlign = align
+  } else {
+    dom.style.textAlign = ""
+  }
+}
+
 // cell（table_cell / table_header）级轻量 NodeView。必须存在的原因：grip
 // 渲染进 td/th 后，PM 对 mutation / 事件只问"最近的 desc"——即 cell 级，
 // table 级 NodeView 的 ignoreMutation / stopEvent 收不到询问。cell NodeView
@@ -122,6 +146,9 @@ export function createHandleAwareCellNodeView(node: PMNode) {
   var dom = document.createElement(isHeaderCell ? "th" : "td")
   // 与 schema toDOM 一致：th/td 统一带 table-cell 类，handler 样式挂载于类而非裸标签
   dom.className = "table-cell"
+  // 与 schema toDOM 一致：列对齐（GFM :---/:---:/---:）写成 text-align 内联样式，
+  // NodeView 复用同一 DOM（grip 不重建），update 时须按新节点 attrs 重新同步
+  applyCellAlignStyle(dom, node)
   return {
     dom: dom,
     contentDOM: dom,
@@ -131,6 +158,7 @@ export function createHandleAwareCellNodeView(node: PMNode) {
         return false
       }
       node = nextNode
+      applyCellAlignStyle(dom, node)
       return true
     },
     ignoreMutation: function (mutation: MutationRecord) {
@@ -186,6 +214,8 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
   var rowGripCount = -1
   var colGripCount = -1
   var removeDragListeners: (() => void) | null = null
+  // 当前打开的列对齐下拉面板（挂在某个列菜单按钮下），null = 未打开
+  var openAlignMenuEl: HTMLElement | null = null
 
   function getTablePos(): number {
     var pos = ctx.getPos()
@@ -301,8 +331,8 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
   function applyHandleGeometry() {
     // 保底校验：PM 重绘 cell 内容（如撤销大段）可能把插在 td/th 里的 grip
     // 清掉且不触发 NodeView.update；每次几何重测前校验 grip 数量，缺失则重建
-    var expectedGrips = collectCellEls().length + collectRowEls().length
-    var actualGrips = table.querySelectorAll(".md-editor-table-handle-col, .md-editor-table-handle-row").length
+    var expectedGrips = collectCellEls().length * 2 + collectRowEls().length
+    var actualGrips = table.querySelectorAll(".md-editor-table-handle-col, .md-editor-table-handle-col-menu, .md-editor-table-handle-row").length
     if (actualGrips !== expectedGrips) {
       rebuildHandles(true)
       return
@@ -365,6 +395,10 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
     rowGripCount = nextRowGrips
     colGripCount = nextColGrips
 
+    // 结构变化时重开菜单无意义（面板挂在菜单按钮下会随按钮一起被清掉），
+    // 先关闭并清理面板的跟踪引用
+    closeAlignMenu()
+
     // 旧把手清理：grip 在 td/th 里、+ 按钮在 overlay 里，都在 shell 子树内，
     // 从 shell 范围统一移除（drop-target 类在 td/th 上，不受影响）
     var stale = shell.querySelectorAll(".md-editor-table-handle")
@@ -389,6 +423,17 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
       colGrip.setAttribute("title", "拖动移动列，单击定位")
       colGrip.innerHTML = '<span class="md-editor-table-handle-icon">' + SvgIcon.tableColGrip + "</span>"
       cellEls[col].appendChild(colGrip)
+    }
+    // 列对齐菜单按钮：渲染进首行各 cell（与列 grip 同格），CSS 定位到列 grip
+    // 条带的右端（表格上缘外侧右端）。点击弹出对齐方式 dropdown（面板为此
+    // 按钮的子节点，随按钮一起被把手层管理）；拖动列时不参与，只响应 click
+    for (var alignCol = 0; alignCol < colGripCount && alignCol < cellEls.length; alignCol += 1) {
+      var alignBtn = document.createElement("div")
+      alignBtn.className = "md-editor-table-handle md-editor-table-handle-col-menu"
+      alignBtn.setAttribute("data-index", String(alignCol))
+      alignBtn.setAttribute("title", "列对齐")
+      alignBtn.innerHTML = '<span class="md-editor-table-handle-icon">' + SvgIcon.menu + "</span>"
+      cellEls[alignCol].appendChild(alignBtn)
     }
     for (var row = 0; row < rowGripCount && row < rowEls.length; row += 1) {
       var firstCell = rowEls[row].firstElementChild
@@ -591,6 +636,115 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
     }
   }
 
+  // ===== 列对齐菜单（dropdown，挂在各列菜单按钮下） =====
+
+  // 读取当前列的对齐状态：取表头行（首行）该列 cell 的 align——序列化端
+  // 分隔行的对齐即以表头行为唯一事实来源，菜单高亮同源。菜单打开时据此
+  // 给对应项写 active 高亮
+  function getColumnAlign(colIndex: number): string | null {
+    var tablePos = getTablePos()
+    if (tablePos < 0) {
+      return null
+    }
+    var tableNode = view.state.doc.nodeAt(tablePos)
+    if (!tableNode || tableNode.type.name !== "table") {
+      return null
+    }
+    var rows = getTableRowsFromNode(tableNode)
+    var firstRow = rows.length > 0 ? rows[0].rowNode : null
+    if (!firstRow || firstRow.childCount <= colIndex) {
+      return null
+    }
+    var align = firstRow.child(colIndex).attrs.align
+    return align === "left" || align === "center" || align === "right" ? align : null
+  }
+
+  // 整列设置对齐：遍历表内所有行的该列 cell（残缺行跳过），单事务逐个
+  // setNodeAttribute（cell 起始位置 = tablePos + 行 startOffset + 1 + 前面
+  // 各 cell 的 nodeSize，与 getTableCellContentOffset 的换算同源、少一个
+  // 内容偏移）。值与当前相同的 cell 跳过，全列无变化则不提交事务
+  function runAlignMutation(colIndex: number, align: string | null) {
+    var tablePos = getTablePos()
+    if (tablePos < 0) {
+      return
+    }
+    var tableNode = view.state.doc.nodeAt(tablePos)
+    if (!tableNode || tableNode.type.name !== "table") {
+      return
+    }
+    var rows = getTableRowsFromNode(tableNode)
+    var tr = view.state.tr
+    var changed = false
+    for (var i = 0; i < rows.length; i += 1) {
+      var rowNode = rows[i].rowNode
+      if (!rowNode || rowNode.childCount <= colIndex) {
+        continue
+      }
+      var cellPos = tablePos + rows[i].startOffset + 1
+      for (var c = 0; c < colIndex; c += 1) {
+        cellPos += rowNode.child(c).nodeSize
+      }
+      if (rowNode.child(colIndex).attrs.align !== align) {
+        tr.setNodeAttribute(cellPos, "align", align)
+        changed = true
+      }
+    }
+    if (changed) {
+      view.dispatch(tr)
+    }
+  }
+
+  // 关闭并移除当前打开的对齐下拉面板（按钮若还在文档中，顺手清其 -open 态）
+  function closeAlignMenu() {
+    if (!openAlignMenuEl) {
+      return
+    }
+    var panel = openAlignMenuEl
+    var button = panel.parentElement
+    if (button) {
+      button.classList.remove("md-editor-table-handle-col-menu-open")
+    }
+    if (panel.parentNode) {
+      panel.parentNode.removeChild(panel)
+    }
+    openAlignMenuEl = null
+  }
+
+  // 打开（或切换到）某列的对齐下拉面板。面板 HTML 在脱离文档时构建完毕再
+  // 一次性 append（唯一可见的 mutation 是插入面板节点本身，isHandleNode 认得
+  // 它）；此后不再改面板 DOM，杜绝 PM 把菜单项当单元格内容重读
+  function openAlignMenu(button: HTMLElement, colIndex: number) {
+    closeAlignMenu()
+    var current = getColumnAlign(colIndex)
+    var html = ""
+    for (var i = 0; i < ALIGN_OPTIONS.length; i += 1) {
+      var option = ALIGN_OPTIONS[i]
+      var active = option.value === current ? " md-editor-table-align-item-active" : ""
+      html += '<button type="button" class="md-editor-table-align-item' + active +
+        '" data-align="' + (option.value === null ? "" : option.value) +
+        '" title="' + option.label + '">' +
+        '<span class="md-editor-table-align-item-icon">' + option.icon + "</span>" +
+        '<span class="md-editor-table-align-item-label">' + option.label + "</span></button>"
+    }
+    var panel = document.createElement("div")
+    panel.className = "md-editor-table-align-menu"
+    panel.setAttribute("data-col", String(colIndex))
+    panel.innerHTML = html
+    button.appendChild(panel)
+    button.classList.add("md-editor-table-handle-col-menu-open")
+    openAlignMenuEl = panel
+  }
+
+  // 同一按钮：开 ↔ 关；不同按钮：关旧开新（openAlignMenu 内部先 close）
+  function toggleAlignMenu(button: HTMLElement) {
+    if (openAlignMenuEl && openAlignMenuEl.parentElement === button) {
+      closeAlignMenu()
+      return
+    }
+    var colIndex = parseInt(button.getAttribute("data-index") || "0", 10)
+    openAlignMenu(button, colIndex)
+  }
+
   // 拖动把手：document 级监听（不依赖 setPointerCapture，jsdom 等环境也可用）。
   // grip 渲染在 td/th 里，其父元素即所在的对应单元格（单击落光标补偿用）
   function startDrag(event: PointerEvent, kind: "row" | "col", fromIndex: number, gripEl: HTMLElement) {
@@ -656,6 +810,10 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
       // + 按钮只响应 click，pointerdown 不开拖动
       return
     }
+    if (grip.classList.contains("md-editor-table-handle-col-menu")) {
+      // 列对齐菜单按钮（及其面板内的项）同理：只响应 click，不开拖动
+      return
+    }
     var kind: "row" | "col" = grip.getAttribute("data-kind") === "col" ? "col" : "row"
     var index = parseInt(grip.getAttribute("data-index") || "0", 10)
     grip.classList.add("md-editor-table-handle-active")
@@ -674,6 +832,18 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
   // 新的拖动/选中，startDrag 的 showIndicator 会把高亮切到新行/列
   function onDocPointerDown(event: PointerEvent) {
     var target = event.target
+    // 列对齐下拉的关闭时机：按下面板与菜单按钮以外的任意位置即关（点到
+    // 别的菜单按钮 / 别的 grip 也不豁免——onShellClick 随后的 click 会重新开
+    // 新面板，净效果是切换）。注意此监听在 document 上、bubble 阶段晚于
+    // shell 的 pointerdown，不会干扰把手交互本身
+    if (openAlignMenuEl) {
+      var el = target instanceof Element ? target : null
+      var inMenu = !!(el && (openAlignMenuEl.contains(el) ||
+        (el.closest(".md-editor-table-handle-col-menu") && shell.contains(el))))
+      if (!inMenu) {
+        closeAlignMenu()
+      }
+    }
     if (target instanceof Element && shell.contains(target)) {
       if (target.closest(".md-editor-table-handle") &&
           !target.closest(".md-editor-table-append-row") &&
@@ -704,6 +874,18 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
       runAppendMutation("row")
     } else if (target.closest(".md-editor-table-append-col")) {
       runAppendMutation("col")
+    } else if (target.closest(".md-editor-table-align-item")) {
+      // 点选对齐项：面板 data-col 定位列，data-align 空串 = 默认（清除对齐）
+      var alignItem = target.closest(".md-editor-table-align-item") as HTMLElement
+      var alignPanel = alignItem.closest(".md-editor-table-align-menu") as HTMLElement | null
+      var alignCol = alignPanel ? parseInt(alignPanel.getAttribute("data-col") || "0", 10) : 0
+      var alignRaw = alignItem.getAttribute("data-align") || ""
+      var alignValue = alignRaw === "left" || alignRaw === "center" || alignRaw === "right" ? alignRaw : null
+      runAlignMutation(alignCol, alignValue)
+      closeAlignMenu()
+    } else if (target.closest(".md-editor-table-handle-col-menu")) {
+      // 菜单主按钮：开 ↔ 关面板（不同按钮则是切换）
+      toggleAlignMenu(target.closest(".md-editor-table-handle-col-menu") as HTMLElement)
     }
   }
 
@@ -800,6 +982,7 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
     },
     destroy: function () {
       document.removeEventListener("pointerdown", onDocPointerDown)
+      closeAlignMenu()
       if (measureFrame !== null) {
         window.cancelAnimationFrame(measureFrame)
         measureFrame = null

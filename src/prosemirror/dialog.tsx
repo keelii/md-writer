@@ -15,6 +15,7 @@ export interface RunDialogOptions {
   ariaLabel?: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  buttonExtra?: Element;
   opener?: Element | null;
   focusSelector?: string;
   // 取值注入：默认经 data-role~="md-editor-dialog-value" 取 .value（input/textarea），
@@ -32,6 +33,7 @@ function buildDialogDom(options: RunDialogOptions): HTMLElement {
   var confirmLabel = options.confirmLabel || "确定"
   var cancelLabel = options.cancelLabel || "取消"
   var bodyEl = <div className="ui-dialog-body">{options.bodyElement}</div>
+  var buttonExtra = options.buttonExtra || ""
   return (
     <div className="ui-dialog" role="dialog" aria-modal="true" aria-label={ariaLabel}>
       <div className="ui-dialog-header">
@@ -47,8 +49,11 @@ function buildDialogDom(options: RunDialogOptions): HTMLElement {
       </div>
       {bodyEl}
       <div className="ui-dialog-footer">
-        <button type="button" className="ui-btn outline" data-role="md-editor-dialog-cancel ui-dialog-cancel">{cancelLabel}</button>
-        <button type="button" className="ui-btn primary" data-role="md-editor-dialog-confirm">{confirmLabel}</button>
+        <div className="ui-dialog-button-extra">{buttonExtra}</div>
+        <div className="ui-dialog-button">
+          <button type="button" className="ui-btn outline" data-role="md-editor-dialog-cancel ui-dialog-cancel">{cancelLabel}</button>
+          <button type="button" className="ui-btn primary" data-role="md-editor-dialog-confirm">{confirmLabel}</button>
+        </div>
       </div>
     </div>
   )
