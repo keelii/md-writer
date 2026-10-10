@@ -22,22 +22,12 @@ function loadResources(resources: string[]): Promise<void> {
   }, Promise.resolve());
 }
 
-function getConfiguredAssetPaths(defaults: string[], configured: string[] | undefined) {
-  var assets = Array.isArray(configured) ? configured.filter(function (asset) {
-    return typeof asset === "string" && asset.trim().length > 0
-  }) : []
-  if (assets.length === 0) {
-    return defaults
-  }
-  return assets
-}
-
-export function loadMermaidPreviewRuntime(opts?: Pick<MDWriterInitOptions, "mermaidAssets">) {
-  var resources = getConfiguredAssetPaths(
-    ["./static/mermaid/mermaid.tiny.js", "./static/svg-pan-zoom/svg-pan-zoom.min.js"],
-    opts && opts.mermaidAssets
-  )
-  return loadResources(resources).then(function () {
+export function loadMermaidPreviewRuntime(opts: Pick<MDWriterInitOptions, "mermaidAssets"> = {}) {
+  opts.mermaidAssets = opts.mermaidAssets || [
+    "./static/mermaid/mermaid.tiny.js",
+    "./static/svg-pan-zoom/svg-pan-zoom.min.js"
+  ]
+  return loadResources(opts.mermaidAssets).then(function () {
     window.mermaid.initialize({
       startOnLoad: false,
       securityLevel: "strict"
@@ -65,12 +55,9 @@ export function removeMermaidRenderArtifacts(renderID: string) {
 // SVG 块只依赖 svg-pan-zoom（不含 mermaid）。
 // 资源路径与 mermaid 预览共用 mermaidAssets 配置：默认指向同一份
 // static/svg-pan-zoom/svg-pan-zoom.min.js，自定义时需自行包含 pan-zoom 脚本。
-export function loadSvgPanZoomRuntime(opts?: Pick<MDWriterInitOptions, "mermaidAssets">) {
-  var resources = getConfiguredAssetPaths(
-    ["./static/svg-pan-zoom/svg-pan-zoom.min.js"],
-    opts && opts.mermaidAssets
-  )
-  return loadResources(resources).then(function () {
+export function loadSvgPanZoomRuntime(opts: Pick<MDWriterInitOptions, "mermaidAssets"> = {}) {
+  opts.mermaidAssets = opts.mermaidAssets || ["./static/svg-pan-zoom/svg-pan-zoom.min.js"]
+  return loadResources(opts.mermaidAssets).then(function () {
     if (!window.svgPanZoom) {
       throw new Error("svgPanZoom runtime unavailable")
     }
@@ -79,17 +66,14 @@ export function loadSvgPanZoomRuntime(opts?: Pick<MDWriterInitOptions, "mermaidA
 
 var katexPreviewRuntimePromise: Promise<NonNullable<Window["katex"]>> | null = null
 
-export function loadKatexPreviewRuntime(opts?: Pick<MDWriterInitOptions, "katexAssets">) {
+export function loadKatexPreviewRuntime(opts: Pick<MDWriterInitOptions, "katexAssets"> = {}) {
   if (katexPreviewRuntimePromise && !opts) {
     return katexPreviewRuntimePromise
   }
 
-  var resources = getConfiguredAssetPaths(
-    ["./static/katex/katex.css", "./static/katex/katex.js"],
-    opts && opts.katexAssets
-  )
+  opts.katexAssets = opts.katexAssets || ["./static/katex/katex.min.css", "./static/katex/katex.min.js"]
 
-  var loadPromise = loadResources(resources).then(function () {
+  var loadPromise = loadResources(opts.katexAssets).then(function () {
     if (!window.katex || typeof window.katex.render !== "function") {
       throw new Error("KaTeX runtime unavailable")
     }

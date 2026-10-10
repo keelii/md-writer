@@ -47,7 +47,7 @@
   box-sizing: border-box;
   margin-bottom: var(--line-height);
 }
-.theme-default h1 { font-size: 28px; }
+.theme-default h1 { font-size: 24px; }
 .theme-default h2 { font-size: 20px; }
 .theme-default h3 { font-size: 18px; }
 .theme-default h4 { font-size: 16px; }

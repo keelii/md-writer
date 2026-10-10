@@ -7,8 +7,15 @@ single global `MDWriter.init()` API and keeps the editor content available via
 ## Features
 
 - WYSIWYG editing for Markdown content with automatic serialization and parsing
-- Headings, lists, blockquotes, inline code, links, and tables
-- Raw-block preservation for math, iframes, YAML frontmatter, and footnotes
+- Headings, lists (nested), blockquotes, inline code, links, and tables with
+  per-column alignment and row/column operations
+- Inline HTML marks: `<u>`, `<mark>`, `<sub>`, `<sup>`, `<kbd>`, `<abbr>`
+- Syntax-highlighted code blocks (highlight.js, per-block language switcher and
+  copy button)
+- Raw-block preservation for math (`$$`), iframes, YAML frontmatter, footnotes,
+  Mermaid diagrams, standalone SVG, and general HTML blocks
+- Built-in table of contents panel and vertical rhythm grid
+- Optional localStorage persistence (content + UI state)
 - Optional toolbar binding via `data-md-editor-command`
 - Mermaid and math preview hooks for richer article editing
 - Image upload hook via `onImageUpload`
@@ -64,10 +71,21 @@ The demo page in the repo root (`index.html`) loads that bundle.
 - `onChange(markdown)` (optional): called whenever the document changes.
 - `viewBarRoot` (optional): root element for auto-rendered view controls.
 - `formatBarRoot` (optional): root element for auto-rendered toolbar buttons.
+- `tocRoot` (optional): mount element for the table of contents panel.
+- `tocMaxDepth` (optional, default `3`): maximum heading depth included in the TOC.
+- `defaultShowTOC` (optional, default `false`): show the TOC panel on init.
+- `defaultShowRhythmGrid` (optional, default `false`): show the vertical rhythm grid on init.
 - `rawPreview` (optional, default `false`): render math and iframe blocks as read-only previews in WYSIWYG mode.
 - `mermaidAssets` (optional): custom Mermaid asset URLs or paths.
 - `katexAssets` (optional): custom KaTeX asset URLs or paths.
 - `onImageUpload(file)` (optional): async hook for image uploads; return a URL or `{ src, alt, title }`.
+- `storage` (optional, `"localStorage"`): persist document content and UI
+  state; saved content (`md-writer:content`) is restored in priority over
+  `initialMarkdown`, and saved state (`md-writer:state`) over the `default*`
+  options.
+
+The editor instance returned by `init()` also exposes `getMarkdown()`,
+`setMarkdown(markdown)`, `focus()`, `refreshMermaidPreviews()`, and `destroy()`.
 
 ## Toolbar bindings
 
@@ -76,6 +94,7 @@ matching command. Built-in commands include:
 
 - `bold`
 - `italic`
+- `strike`
 - `inline_code`
 - `link`
 - `image_upload`
@@ -86,14 +105,26 @@ matching command. Built-in commands include:
 - `undo`
 - `redo`
 
+Table context commands (only visible/enabled inside a table):
+
+- `table_add_row`
+- `table_add_column`
+- `table_delete_row`
+- `table_delete_column`
+- `table_move_row_up`
+- `table_move_row_down`
+- `table_move_column_left`
+- `table_move_column_right`
+
 ## View controls
 
 Any element with `data-md-editor-view="..."` is bound automatically to a
 view-level control. Built-in controls include:
 
-- `toggle_source`
-
-`toggle_source` shortcut: `Meta+E`
+- `toggle_source` (shortcut: `Meta+E`)
+- `toggle_toc`
+- `toggle_rhythm`
+- `show_help`
 
 Example:
 
@@ -111,10 +142,20 @@ The editor recognizes common formatting shortcuts:
 - `* ` or `- ` → bullet list
 - `1. ` → ordered list
 - `> ` → blockquote
+- `---` on its own line → horizontal rule
+- `**bold**`, `*italic*`, `~~strike~~`, `` `code` ``, `[text](url)` → inline marks
+- `<u>` / `<mark>` / `<sub>` / `<sup>` / `<kbd>` / `<abbr title="...">` → inline HTML marks
+- `$...$` → inline math, `$$ ... $$` → display math raw block
+- ``` ```lang ``` → fenced code blocks (syntax highlighting for js/ts/python/
+  java/c/php/go/css/xml/markdown/bash; other languages stay plain text)
+- ``` ```mermaid ``` → Mermaid diagram with fullscreen pan/zoom preview
+- Tables with GFM alignment separators (`:---`, `:---:`, `---:`) and `<br>` line breaks in cells
 - `--- ... ---` (at document start) → YAML frontmatter raw block
-- `$$ ... $$` → display math raw block
-- `[^id]: ...` → footnote definition raw block
+- `[^id]: ...` → footnote definition raw block (continuation lines indented by 4 spaces or a tab)
+- `[^id]` → footnote reference (inline)
 - `<iframe ...></iframe>` → iframe raw block
+- HTML blocks starting with `div`, `section`, `figure`, `details`, `svg`, etc. → HTML raw blocks
+- Standalone `<svg ...>` → rendered SVG preview block
 
 When `rawPreview` is enabled:
 

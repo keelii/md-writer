@@ -5,7 +5,7 @@
    锚在块内（heading/paragraph）与锚在块前（atom 预览块）两种形态几何一致。 */
 .md-editor-block-menu {
   position: absolute;
-  margin-left: -2.5rem;
+  margin-left: -3rem;
   display: flex;
   align-items: center;
   justify-content: end;
@@ -14,7 +14,7 @@
   width: 2rem;
   height: var(--line-height);
   line-height: var(--line-height);
-  padding-right: 0.5rem;
+  padding-right: 1rem;
   visibility: hidden;
 }
 /* 锚在块内：菜单是来源块的子元素 */

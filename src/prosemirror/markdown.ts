@@ -463,7 +463,7 @@ function splitIntoRawBlockSegments(markdown: string): RawBlockSegment[] {
       continue
     }
 
-    if (/^\[\^[^]]+\]:/.test(line)) {
+    if (/^\[\^[^\]]+\]:/.test(line)) {
       flushMarkdown()
       var footnoteLines = [line]
       i += 1
@@ -531,7 +531,7 @@ function splitRawInlineText(text: string): RawInlineSegment[] {
     return [{kind: "text", text: ""}]
   }
 
-  var pattern = /\[\^[^]]+\]|\$\$[^\n]+?\$\$|\$(?!\$)[^\n]+?\$(?!\$)/g
+  var pattern = /\[\^[^\]]+\]|\$\$[^\n]+?\$\$|\$(?!\$)[^\n]+?\$(?!\$)/g
   var out: RawInlineSegment[] = []
   var last = 0
   var match
@@ -661,7 +661,7 @@ function protectRawInlinePlaceholders(text: string): { text: string; placeholder
     return {text: "", placeholders: []}
   }
 
-  var pattern = /\[\^[^]]+\]|\$\$[^\n]+?\$\$|\$(?!\$)[^\n]+?\$(?!\$)/g
+  var pattern = /\[\^[^\]]+\]|\$\$[^\n]+?\$\$|\$(?!\$)[^\n]+?\$(?!\$)/g
   var placeholders: RawInlinePlaceholder[] = []
   var out = ""
   var last = 0
@@ -897,6 +897,10 @@ export function parseMarkdown(schema: Schema, parser: MarkdownParser, markdown: 
     }
 
     var protectedMarkdown = protectRawInlinePlaceholders(seg.text || "")
+    // 纯空白段（如两个 raw 块之间只隔空行）不产生空段落节点
+    if (!protectedMarkdown.text.trim()) {
+      continue
+    }
     var parsed = parser.parse(protectedMarkdown.text || "")
     var converted = schema.nodeFromJSON(parsed.toJSON())
     converted = replaceRawInlinePlaceholdersInDoc(schema, converted, protectedMarkdown.placeholders)
