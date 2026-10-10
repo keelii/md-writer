@@ -1,3 +1,4 @@
+// 全屏互斥单例：同一时刻只允许一个预览块全屏
 // 预览块公共全屏 + pan/zoom 模块：mermaid 图表与纯 SVG 块共用。
 // 职责：右上角全屏按钮、全屏互斥管理（Esc 退出）、svg-pan-zoom 控制器。
 // 类名约定（对应 preview-zoom.css）：
@@ -284,5 +285,19 @@ export function createPreviewPanZoomController(dom: HTMLElement, diagram: HTMLEl
       dom.removeEventListener("wheel", onWheel)
       destroyPanZoom()
     }
+  }
+}
+
+// 预览块 stopEvent 收窄策略（点击整块选中）：
+// - 全屏态：pan/zoom 交互占满 shell，事件一律由 NodeView 接管，PM 不处理
+// - 非全屏态：仅全屏按钮自身的事件由 NodeView 接管（按钮自带 click 监听），
+//   其余点击放行给 PM——svg 块（raw_block atom）由原生 selectClickedLeaf 选中；
+//   mermaid（code_block 非 atom）由 handleClickOn 兜底（见 index.tsx nodeViews 注释）
+export function createPreviewStopEvent(shell: HTMLElement, button: HTMLElement) {
+  return function (event: Event) {
+    if (isPreviewFullscreen(shell)) {
+      return true
+    }
+    return button.contains(event.target as Node)
   }
 }

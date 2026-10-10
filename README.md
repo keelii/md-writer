@@ -255,3 +255,7 @@ There are also two `.mjs` sanity checks (they import TS sources, so run them wit
 npx --yes tsx --import ./test/css-shim.mjs test/verify-schema.mjs
 npx --yes tsx --import ./test/css-shim.mjs test/verify-table-br.mjs
 ```
+
+## Support
+
+[Buy me a coffee](https://user-images.githubusercontent.com/458894/32358969-179e7a28-c085-11e7-882a-485164168f74.png)

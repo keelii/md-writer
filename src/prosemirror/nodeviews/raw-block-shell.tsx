@@ -1,12 +1,10 @@
 // raw_block NodeView 共享外壳：dom 结构。
 // math/iframe/frontmatter 三种 raw_block 实现（Raw 与 Widget）共用同一壳。
 //
-// 点击不主动整块选中（该交互已取消）：mousedown 放行原生事件，
-// 浏览器把光标定位到块前后；整块删除两条路：
-// 1. 键盘——光标移到块前后按 Backspace
-//    （PM joinBackward 对可选 leaf 节点会先整块选中、再按一次删除）；
-// 2. 鼠标——hover 块时左侧显示节点操作菜单（decoration 实现，
-//    见 node-op-menu.tsx / block-menu.ts）。
+// 点击整块选中：math/frontmatter 的 NodeView 不设 stopEvent，点击放行 PM，
+// 原生 selectClickedLeaf（raw_block 为 atom）产生 NodeSelection，选中态样式
+// 落在壳上（raw-block-shell.css 的 .ProseMirror-selectednode）；选中后 Backspace
+// 整删，或 hover 块时左侧节点操作菜单删除（见 node-op-menu.tsx / block-menu.ts）。
 import { h } from "../../jsx"
 import { setClass } from "../../utils"
 import "./raw-block-shell.css"

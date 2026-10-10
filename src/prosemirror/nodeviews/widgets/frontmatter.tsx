@@ -1,7 +1,7 @@
 // Widget NodeView：frontmatter。
 // 渲染来源是 markdown DSL（--- … --- 头部键值）→ 自建 renderer 产出只读表格，
-// 无外部交互内容，点击不主动整块选中；
-// 整块删除：键盘移到块前后按 Backspace，或 hover 块左侧节点操作菜单（见 node-op-menu）。
+// 无外部交互内容；不设 stopEvent，点击放行 PM 原生 selectClickedLeaf
+// （raw_block 为 atom）产生 NodeSelection，整块选中后可直接 Backspace 删除。
 import { Node as PMNode } from "prosemirror-model"
 import { h } from "../../../jsx"
 import { NodeViewContext, returnTrue } from "../types"
@@ -54,7 +54,6 @@ export function createFrontmatterRawBlockNodeView(node: PMNode, ctx: NodeViewCon
       node = nextNode
       return true
     },
-    ignoreMutation: returnTrue,
-    stopEvent: returnTrue
+    ignoreMutation: returnTrue
   }
 }

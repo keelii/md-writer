@@ -1,5 +1,5 @@
 import { Node as PMNode } from "prosemirror-model"
-import { EditorState } from "prosemirror-state"
+import { EditorState, NodeSelection } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
 import { MDWriterInitOptions, MDWriterInstance } from "./types"
 import { resolveElement, setElementVisible, addClass, removeClass, toggleClass } from "./utils"
@@ -365,6 +365,24 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
       }
       return nodeViews
     })(),
+    // 预览块点击整块选中（NodeSelection）：
+    // raw_block（frontmatter/公式/svg）是 atom，放行事件后原生 selectClickedLeaf
+    // 即可命中，无需处理；mermaid 是 code_block（非 atom），原生路径够不着——
+    // 这里用 handleClickOn（PM 官方 props 机制）命中 mermaid 节点时手工置 NodeSelection
+    handleClickOn: function (
+      editorView: EditorView,
+      _pos: number,
+      node: PMNode,
+      nodePos: number
+    ) {
+      if (node.type.name !== "code_block" || !isMermaidCodeBlock(node)) {
+        return false
+      }
+      var tr = editorView.state.tr.setSelection(NodeSelection.create(editorView.state.doc, nodePos))
+      tr.setMeta("pointer", true)
+      editorView.dispatch(tr)
+      return true
+    },
     // 事务按性质分流，高频事务只做必要的外溢，避免每笔 tr 都全量 serialize（O(文档大小)）：
     //   docChanged → sync()（serialize + onChange）
     //   docChanged 或 selectionChanged → refreshControls()（纯选区变化只刷 UI，不 serialize）

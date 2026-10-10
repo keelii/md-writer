@@ -2,7 +2,9 @@
 // 与 mermaid 不同，源本身就是合法 SVG，无需 renderer——
 // 解析 + sanitize（见 kinds.parseSvgRawBlockSource）后直接渲染；
 // 全屏/pan/zoom 复用公共模块 preview-zoom，svg-pan-zoom 运行时按需懒加载。
-// 整块删除两条路与 mermaid 一致：块前后 Backspace / 左侧节点操作菜单。
+// 整块选中：stopEvent 收窄放行点击（见 preview-zoom.createPreviewStopEvent），
+// raw_block 为 atom、原生 selectClickedLeaf 命中 NodeSelection；
+// 选中后 Backspace 整删，或 hover 块左侧节点操作菜单删除按钮（见 node-op-menu）。
 import { Node as PMNode } from "prosemirror-model"
 import { loadSvgPanZoomRuntime } from "../assets"
 import { snapMinHeightToRhythm, setClass } from "../../../utils"
@@ -15,7 +17,8 @@ import {
   togglePreviewFullscreen,
   exitPreviewFullscreen,
   installPreviewFullscreenEvents,
-  createPreviewPanZoomController
+  createPreviewPanZoomController,
+  createPreviewStopEvent
 } from "./preview-zoom"
 import "./preview-zoom.css"
 import "../overlay-button.css"
@@ -106,7 +109,7 @@ export function createSvgBlockNodeView(node: PMNode, ctx: NodeViewContext) {
       return true
     },
     ignoreMutation: returnTrue,
-    stopEvent: returnTrue,
+    stopEvent: createPreviewStopEvent(dom, button),
     refresh: function () {
       // 展示态为自适应布局无需处理；全屏态刷新 pan/zoom 视口
       if (isPreviewFullscreen(dom)) {

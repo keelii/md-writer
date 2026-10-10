@@ -1,7 +1,8 @@
 // Widget NodeView：公式。
 // 渲染来源是 DSL（$…$ / $$…$$ LaTeX）→ KaTeX renderer 产出 DOM，
-// 产出内容不承载编辑器交互（无 iframe/脚本），点击不主动整块选中；
-// 整块删除：键盘移到块前后按 Backspace，或 hover 块左侧节点操作菜单（见 node-op-menu）。
+// 产出内容不承载编辑器交互（无 iframe/脚本）；
+// 块级公式不设 stopEvent，点击放行 PM 原生 selectClickedLeaf
+// （raw_block 为 atom）产生 NodeSelection，整块选中后可直接 Backspace 删除。
 //
 // 块级公式高度按韵律行高（兜底值见 utils.RHYTHM_UNIT_FALLBACK）倍数向上取整：
 // KaTeX 渲染高度是任意的，纯 CSS 无法对自然高度取整，
@@ -78,8 +79,7 @@ export function createMathRawBlockNodeView(node: PMNode, ctx: NodeViewContext) {
       node = nextNode
       return true
     },
-    ignoreMutation: returnTrue,
-    stopEvent: returnTrue
+    ignoreMutation: returnTrue
   }
 }
 

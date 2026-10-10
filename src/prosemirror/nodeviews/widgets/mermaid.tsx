@@ -1,9 +1,9 @@
 // Widget NodeView：Mermaid 图表。
 // 渲染来源是 DSL（```mermaid 代码）→ mermaid renderer 产出 SVG，
 // 全屏态由 svg-pan-zoom 提供交互（全屏/pan/zoom 能力见公共模块 preview-zoom）；
-// renderer 产出不承载 HTML 交互，点击不主动整块选中、放行原生事件；
-// 整块删除两条路：光标移到块前后按 Backspace
-// （PM joinBackward 对可选 leaf 节点会先整块选中、再按一次删除），
+// renderer 产出不承载 HTML 交互，点击放行原生事件；
+// 整块选中：code_block 非 atom、原生 selectClickedLeaf 命中不了，
+// 由 handleClickOn 兜底（见 index.tsx）；选中后 Backspace 整删，
 // 或 hover 块左侧节点操作菜单删除按钮（见 node-op-menu）。
 import { Node as PMNode } from "prosemirror-model"
 import { MermaidRenderResult } from "../../../types"
@@ -18,7 +18,8 @@ import {
   togglePreviewFullscreen,
   exitPreviewFullscreen,
   installPreviewFullscreenEvents,
-  createPreviewPanZoomController
+  createPreviewPanZoomController,
+  createPreviewStopEvent
 } from "./preview-zoom"
 import "./preview-zoom.css"
 import "../overlay-button.css"
@@ -119,7 +120,7 @@ export function createMermaidNodeView(node: PMNode, ctx: NodeViewContext) {
       return true
     },
     ignoreMutation: returnTrue,
-    stopEvent: returnTrue,
+    stopEvent: createPreviewStopEvent(dom, button),
     refresh: function () {
       // 展示态为自适应布局无需处理；全屏态刷新 pan/zoom 视口
       if (isPreviewFullscreen(dom)) {

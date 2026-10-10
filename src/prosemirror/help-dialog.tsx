@@ -108,7 +108,7 @@ export function openHelpDialog(opener: Element | null) {
     id: "md-editor-help-dialog",
     title: "快捷键帮助",
     bodyElement: buildHelpBody(),
-    width: "640px",
+    width: "800px",
     buttonExtra: <small><a href="https://user-images.githubusercontent.com/458894/32358969-179e7a28-c085-11e7-882a-485164168f74.png" target="_blank">buy me a coffee</a> ❤️</small>,
     confirmLabel: "关闭",
     cancelLabel: "关闭",
