@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "./node_modules/.bin/esbuild src/index.tsx --bundle --format=iife --target=es2018 --global-name=MDWriter --outdir=dist --sourcemap --watch --jsx=transform --jsx-factory=h --jsx-fragment=Fragment",
-    "build": "./node_modules/.bin/esbuild src/index.tsx --bundle --format=iife --target=es2018 --global-name=MDWriter --outdir=dist --sourcemap --minify --jsx=transform --jsx-factory=h --jsx-fragment=Fragment",
+    "build": "rm -rf dist/* && ./node_modules/.bin/esbuild src/index.tsx --bundle --format=iife --target=es2018 --global-name=MDWriter --outdir=dist --minify --jsx=transform --jsx-factory=h --jsx-fragment=Fragment",
     "build:meta": "./node_modules/.bin/esbuild src/index.tsx --bundle --format=iife --target=es2018 --global-name=MDWriter --outdir=dist --sourcemap --metafile=meta.json --jsx=transform --jsx-factory=h --jsx-fragment=Fragment"
   },
   "dependencies": {
