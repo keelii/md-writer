@@ -1,3 +1,6 @@
+.md-editor-dialog {
+  font-size: 14px;
+}
 .md-editor-dialog.ui-dialog-backdrop {
   position: fixed;
   inset: 0;
@@ -29,7 +32,6 @@
   border-bottom: 1px solid #e5e7eb;
 }
 .md-editor-dialog .ui-dialog-title {
-  font-size: 14px;
   font-weight: 600;
 }
 .md-editor-dialog .ui-icon-btn {
@@ -47,6 +49,9 @@
   background: #f3f4f6;
 }
 .md-editor-dialog .ui-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   padding: 16px;
 }
 .md-editor-dialog .ui-field-label {
@@ -101,8 +106,8 @@
 .md-editor-dialog .ui-file-pick {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  margin-bottom: 10px;
   padding: 6px 12px;
   border: 1px solid var(--border-color);
   border-radius: 4px;

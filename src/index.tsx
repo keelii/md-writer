@@ -14,6 +14,7 @@ import { createMermaidNodeView } from "./prosemirror/nodeviews/widgets/mermaid"
 import { createSvgBlockNodeView } from "./prosemirror/nodeviews/widgets/svg-block"
 import { createMathRawBlockNodeView, createRawInlineMathNodeView } from "./prosemirror/nodeviews/widgets/formula"
 import { createFrontmatterRawBlockNodeView } from "./prosemirror/nodeviews/widgets/frontmatter"
+import { createFootnoteRawBlockNodeView, createFootnoteRefRawInlineNodeView } from "./prosemirror/nodeviews/widgets/footnote"
 import { createImageBlockNodeView } from "./prosemirror/image-rhythm"
 import { createHandleAwareCellNodeView, createTableHandlesNodeView, createTableCoordsPlugin } from "./prosemirror/table-handles"
 import { createCodeMirrorSourceEditor, SourceEditorAdapter } from "./codemirror/source-editor"
@@ -340,11 +341,15 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
         }
       }
       if (opts.rawPreview) {
-        // Widget：行内公式（raw_inline $…$），无块级选中交互
+        // Widget：行内公式（raw_inline $…$）与行内脚注引用（[^label]），无块级选中交互
         nodeViews.raw_inline = function(node: PMNode, editorView: EditorView, getPos: () => number) {
+          var footnoteRefView = createFootnoteRefRawInlineNodeView(node)
+          if (footnoteRefView) {
+            return footnoteRefView
+          }
           return createRawInlineMathNodeView(node, {opts: opts, view: editorView, getPos: getPos})
         }
-        // raw_block 按文本内容分派 kind：iframe → Raw，math / frontmatter / svg → Widget
+        // raw_block 按文本内容分派 kind：iframe → Raw，math / frontmatter / svg / footnote → Widget
         nodeViews.raw_block = function(node: PMNode, editorView: EditorView, getPos: () => number) {
           var ctx = {opts: opts, view: editorView, getPos: getPos}
           var kind = getRawBlockKind(node.textContent)
@@ -359,6 +364,9 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
           }
           if (kind === "svg") {
             return trackPreviewNodeView(createSvgBlockNodeView(node, ctx))
+          }
+          if (kind === "footnote") {
+            return createFootnoteRawBlockNodeView(node)
           }
           return null
         }

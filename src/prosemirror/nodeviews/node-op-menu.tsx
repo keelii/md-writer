@@ -12,6 +12,7 @@ import { MDWriterInitOptions } from "../../types"
 import { SvgIcon } from "../../icons"
 import { copyTextToClipboard } from "../../utils"
 import { editPreviewBlockSource } from "../actions"
+import { buildMarkdownSerializer, serializeNodeMarkdown } from "../markdown"
 import { BlockMenuRegistration, BlockMenuContext } from "../block-menu"
 import { buildBlockOpMenuDom } from "../block-op-menu"
 import { reloadBlockAt, deleteBlockAt } from "../prosemirror-helpers"
@@ -22,7 +23,8 @@ import "./node-op-menu.css"
 var toggleByKind: Record<string, { toggleIcon: string, toggleTitle: string }> = {
   math: { toggleIcon: SvgIcon.sigma, toggleTitle: "公式操作" },
   svg: { toggleIcon: SvgIcon.vectorSquare, toggleTitle: "SVG 操作" },
-  mermaid: { toggleIcon: SvgIcon.squareChartGantt, toggleTitle: "图表操作" }
+  mermaid: { toggleIcon: SvgIcon.squareChartGantt, toggleTitle: "图表操作" },
+  footnote: { toggleIcon: SvgIcon.cornerDownRight, toggleTitle: "脚注操作" }
 }
 
 function deleteNodeAt(ctx: BlockMenuContext) {
@@ -39,7 +41,11 @@ function copyNodeSource(ctx: BlockMenuContext) {
   if (!current) {
     return
   }
-  copyTextToClipboard(current.textContent).catch(function () {
+  // 走 markdown 序列化而非 textContent：mermaid（code_block）能补全 ```mermaid 围栏，
+  // raw_block（公式/svg/iframe）序列化结果与 textContent 等价
+  var serializer = buildMarkdownSerializer(current.type.schema)
+  var source = serializeNodeMarkdown(serializer, current).replace(/\s+$/, "")
+  copyTextToClipboard(source).catch(function () {
     // 剪贴板失败静默：按钮交互不弹 Dialog（Dialog 类交互归 actions.ts）
   })
 }

@@ -43,7 +43,7 @@ var helpSections: HelpSection[] = [
     title: "列表与代码块",
     items: [
       ["Tab / Shift+Tab", "列表项降级 / 升级；代码块内缩进 / 反缩进"],
-      ["Backspace / Delete", "删除整块预览（$$ 公式 / iframe / frontmatter / Mermaid 图 / SVG 块）"],
+      ["Backspace / Delete", "删除整块预览（$$ 公式 / iframe / frontmatter / Mermaid 图 / SVG 块 / 脚注）"],
       ["鼠标悬停 · 删除按钮", "预览块左侧出现删除按钮，点击删除整块"]
     ]
   },
@@ -108,7 +108,7 @@ export function openHelpDialog(opener: Element | null) {
     id: "md-editor-help-dialog",
     title: "快捷键帮助",
     bodyElement: buildHelpBody(),
-    width: "800px",
+    width: "900px",
     buttonExtra: <small><a href="https://user-images.githubusercontent.com/458894/32358969-179e7a28-c085-11e7-882a-485164168f74.png" target="_blank">buy me a coffee</a> ❤️</small>,
     confirmLabel: "关闭",
     cancelLabel: "关闭",

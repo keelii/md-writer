@@ -55,7 +55,7 @@ function createLinkAction(link: MarkType): EditorAction {
   }
 }
 
-// 图片上传 Action：弹窗收集 src（本地文件经 onImageUpload 解析或直接填 URL），再走纯命令插入图片节点
+// 图片上传 Action：弹窗收集 src/alt（本地文件经 onImageUpload 解析或直接填 URL），再走纯命令插入图片节点
 function createImageUploadAction(schema: Schema, opts: MDWriterInitOptions): EditorAction {
   return function (view) {
     requestImageByDialog(view.dom, opts).then(function (result) {

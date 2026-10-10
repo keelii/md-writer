@@ -141,7 +141,7 @@ export function runManagedDialog(options: RunDialogOptions): Promise<DialogResul
       cleanup()
       if (options.onClose) options.onClose(backdrop)
       closeManagedDialog(options.id)
-      resolve({ action: action, value: String(value == null ? "" : value).trim() })
+      resolve({ action: action, value: value.trim() })
     }
 
     function onBackdropClick(event: MouseEvent) {

@@ -1,0 +1,32 @@
+/* 脚注定义块卡片：label 徽标 + 定义文本（frontmatter.css 同款 shell 结构） */
+.md-editor-raw-footnote-preview {
+  display: flex;
+  gap: 0.5em;
+  align-items: baseline;
+  padding: 0.4em 0.75em;
+}
+
+.md-editor-footnote-label {
+  flex: none;
+  font-size: 0.8em;
+  line-height: 1.2;
+  padding: 0.1em 0.6em;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--gray-bg);
+  color: var(--link-color);
+  white-space: nowrap;
+}
+
+.md-editor-footnote-text {
+  white-space: pre-wrap;
+  color: #666;
+}
+
+/* 行内脚注引用：sup 上标（formula.css 的 raw-inline-preview 同款思路） */
+.md-editor-raw-inline-footnote {
+  padding: 0 0.1em;
+  color: var(--link-color);
+  font-weight: 600;
+  cursor: default;
+}

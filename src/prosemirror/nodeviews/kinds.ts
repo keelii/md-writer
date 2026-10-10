@@ -19,8 +19,9 @@ export function isMermaidCodeBlock(node: PMNode) {
 
 // raw_block 文本分类：math → Widget（widgets/formula.tsx），
 // iframe → Raw（raw/iframe-block.tsx），frontmatter → Widget（widgets/frontmatter.tsx），
-// svg → Widget（widgets/svg-block.tsx），其余无 NodeView（PM 默认 pre 渲染）。
-export function getRawBlockKind(text: string): "" | "math" | "iframe" | "frontmatter" | "svg" {
+// svg → Widget（widgets/svg-block.tsx），footnote → Widget（widgets/footnote.tsx），
+// 其余无 NodeView（PM 默认 pre 渲染）。
+export function getRawBlockKind(text: string): "" | "math" | "iframe" | "frontmatter" | "svg" | "footnote" {
   if (extractMathRawBlockExpression(text) !== null) {
     return "math"
   }
@@ -32,6 +33,9 @@ export function getRawBlockKind(text: string): "" | "math" | "iframe" | "frontma
   }
   if (isSvgRawBlockText(text)) {
     return "svg"
+  }
+  if (isFootnoteRawBlockText(text)) {
+    return "footnote"
   }
   return ""
 }
@@ -277,6 +281,38 @@ export function parseIframeRawBlockSource(text: string) {
     allow: String(iframe.getAttribute("allow") || "").trim(),
     allowfullscreen: iframe.hasAttribute("allowfullscreen")
   }
+}
+
+// 脚注定义块（[^label]: 定义…，续行以 4 空格 / Tab 缩进）：
+// 返回 label 与剥掉一层缩进后的定义行，供脚注卡片渲染。
+export function isFootnoteRawBlockText(text: string) {
+  return /^\[\^[^\]]+\]:/.test(normalizeNewlines(text))
+}
+
+export function parseFootnoteRawBlockSource(text: string) {
+  var lines = normalizeNewlines(text).split("\n")
+  var match = String(lines[0] || "").match(/^\[\^([^\]]+)\]:\s*/)
+  if (!match) {
+    return null
+  }
+
+  var body = [String(lines[0]).slice(match[0].length)]
+  for (var i = 1; i < lines.length; i += 1) {
+    body.push(String(lines[i]).replace(/^(?: {4}|\t)/, ""))
+  }
+  return {
+    label: match[1],
+    lines: body
+  }
+}
+
+// 行内脚注引用（raw_inline `[^label]`）：返回 label，供 sup 上标渲染。
+export function parseFootnoteRawInlineSource(text: string) {
+  var match = String(text).match(/^\[\^([^\]]+)\]$/)
+  if (!match) {
+    return null
+  }
+  return { label: match[1] }
 }
 
 // 预览类节点（$$ 公式 / iframe / frontmatter 的 raw_block，mermaid code_block）

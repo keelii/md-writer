@@ -62,7 +62,7 @@ export function createCodeMirrorSourceEditor(
       return editor.state.doc.toString()
     },
     setValue: function (value: string) {
-      replaceDoc(String(value == null ? "" : value))
+      replaceDoc(value)
     },
     focus: function () {
       editor.focus()
