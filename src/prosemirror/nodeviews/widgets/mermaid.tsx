@@ -8,7 +8,7 @@
 import { Node as PMNode } from "prosemirror-model"
 import { MermaidRenderResult } from "../../../types"
 import { loadMermaidPreviewRuntime, removeMermaidRenderArtifacts } from "../assets"
-import { snapMinHeightToRhythm, setClass } from "../../../utils"
+import { snapMinHeightToRhythm, setClass, isFunction } from "../../../utils"
 import { h } from "../../../jsx"
 import { NodeViewContext, returnTrue } from "../types"
 import { isMermaidCodeBlock } from "../kinds"
@@ -65,7 +65,7 @@ export function createMermaidNodeView(node: PMNode, ctx: NodeViewContext) {
         return
       }
       diagram.innerHTML = result.svg || ""
-      if (typeof result.bindFunctions === "function") {
+      if (isFunction(result.bindFunctions)) {
         result.bindFunctions(diagram)
       }
       // 展示态：高度自适应（不启用 pan/zoom），并按韵律行高倍数取整；

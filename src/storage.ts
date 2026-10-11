@@ -4,6 +4,8 @@
 // 读写全部 try/catch：隐私模式、配额超限、JSON 损坏一律静默降级为「无存储」，
 // 存储不可用不影响编辑器本身的功能。
 
+import { isString, isObject } from "./utils"
+
 export type StorageBackend = "localStorage"
 
 export interface MDWriterViewState {
@@ -19,7 +21,7 @@ export var STORAGE_STATE_KEY = "md-writer:state"
 export function readStoredContent(backend: StorageBackend): string | null {
   try {
     var raw = window.localStorage.getItem(STORAGE_CONTENT_KEY)
-    return typeof raw === "string" ? raw : null
+    return isString(raw) ? raw : null
   } catch (error) {
     return null
   }
@@ -37,11 +39,11 @@ export function writeStoredContent(backend: StorageBackend, markdown: string): v
 export function readStoredState(backend: StorageBackend): Partial<MDWriterViewState> | null {
   try {
     var raw = window.localStorage.getItem(STORAGE_STATE_KEY)
-    if (typeof raw !== "string" || raw === "") {
+    if (!isString(raw) || raw === "") {
       return null
     }
     var parsed = JSON.parse(raw)
-    if (!parsed || typeof parsed !== "object") {
+    if (!isObject(parsed)) {
       return null
     }
     return parsed as Partial<MDWriterViewState>

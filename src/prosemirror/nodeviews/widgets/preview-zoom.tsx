@@ -10,7 +10,7 @@
 //   md-editor-preview-button                 右上角全屏按钮
 import { SvgPanZoomInstance } from "../../../types"
 import { SvgIcon } from "../../../icons"
-import { hasClass, addClass, removeClass } from "../../../utils"
+import { hasClass, addClass, removeClass, isFunction } from "../../../utils"
 import { h } from "../../../jsx"
 
 // 全屏互斥单例：同一时刻只允许一个预览块全屏
@@ -161,13 +161,13 @@ export function createPreviewPanZoomController(dom: HTMLElement, diagram: HTMLEl
       return
     }
     try {
-      if (typeof panZoom.resize === "function") {
+      if (isFunction(panZoom.resize)) {
         panZoom.resize()
       }
-      if (typeof panZoom.fit === "function") {
+      if (isFunction(panZoom.fit)) {
         panZoom.fit()
       }
-      if (typeof panZoom.center === "function") {
+      if (isFunction(panZoom.center)) {
         panZoom.center()
       }
     } catch (error) {
@@ -251,7 +251,7 @@ export function createPreviewPanZoomController(dom: HTMLElement, diagram: HTMLEl
   }
 
   function onWheel(event: WheelEvent) {
-    if (!event.metaKey || !panZoom || typeof panZoom.zoomAtPointBy !== "function") {
+    if (!event.metaKey || !panZoom || !isFunction(panZoom.zoomAtPointBy)) {
       return
     }
     var delta = Number(event.deltaY || 0)

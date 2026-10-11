@@ -5,7 +5,7 @@ import { commandByName, isCommandActive, normalizeCommandName } from "./commands
 import { actionByName } from "./actions"
 import { getTableContext } from "./table"
 import { SvgIcon } from "../icons"
-import { removeClass, toggleClass } from "../utils"
+import { removeClass, toggleClass, isFunction } from "../utils"
 import { h } from "../jsx"
 import { openHelpDialog } from "./help-dialog"
 
@@ -320,13 +320,13 @@ export function bindViewButtons(
         return
       }
       var action = String(target.getAttribute("data-md-editor-view") || "").trim()
-      if (action === "toggle_source" && runtime && typeof runtime.toggleSourceMode === "function") {
+      if (action === "toggle_source" && runtime && isFunction(runtime.toggleSourceMode)) {
         runtime.toggleSourceMode()
       }
-      if (action === "toggle_toc" && runtime && typeof runtime.toggleToc === "function") {
+      if (action === "toggle_toc" && runtime && isFunction(runtime.toggleToc)) {
         runtime.toggleToc()
       }
-      if (action === "toggle_rhythm" && runtime && typeof runtime.toggleRhythm === "function") {
+      if (action === "toggle_rhythm" && runtime && isFunction(runtime.toggleRhythm)) {
         runtime.toggleRhythm()
       }
       if (action === "show_help") {

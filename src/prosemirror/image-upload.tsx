@@ -1,5 +1,5 @@
 import { MDWriterInitOptions, ImageUploadResult } from "../types"
-import { readFileAsDataURL } from "../utils"
+import { readFileAsDataURL, isString, isObject, isFunction } from "../utils"
 import { h } from "../jsx"
 
 export function getImageUploadInput(): HTMLInputElement {
@@ -17,12 +17,12 @@ export function getImageUploadInput(): HTMLInputElement {
 }
 
 export function resolveImageAttrs(file: File, opts?: MDWriterInitOptions) {
-  if (opts && typeof opts.onImageUpload === "function") {
+  if (opts && isFunction(opts.onImageUpload)) {
     return Promise.resolve(opts.onImageUpload(file)).then(function (result: ImageUploadResult) {
-      if (typeof result === "string") {
+      if (isString(result)) {
         return {src: result, alt: file.name || "", title: null}
       }
-      if (result && typeof result === "object") {
+      if (isObject(result)) {
         var src = result.src || result.url || ""
         var alt = result.alt == null ? (file.name || "") : String(result.alt)
         var title = result.title == null ? null : String(result.title)

@@ -15,7 +15,7 @@ import {
   RawInlinePlaceholder,
   RawInlineSegment
 } from "../types";
-import { normalizeNewlines } from "../utils";
+import { normalizeNewlines, isString, isObject } from "../utils";
 
 type MarkdownParserTokenState = {
   addNode: (nodeType: unknown) => void;
@@ -750,8 +750,8 @@ function replaceRawInlinePlaceholdersInDoc(schema: Schema, doc: PMNode, placehol
     return out
   }
 
-  function walk(nodeJSON: any): any {
-    if (!nodeJSON || typeof nodeJSON !== "object") {
+  function walk(nodeJSON: JSONNodeData): any {
+    if (!isObject(nodeJSON)) {
       return nodeJSON
     }
     if (nodeJSON.type === "raw_block" || nodeJSON.type === "raw_inline" || nodeJSON.type === "code_block") {
@@ -760,7 +760,7 @@ function replaceRawInlinePlaceholdersInDoc(schema: Schema, doc: PMNode, placehol
     if (nodeJSON.content && Array.isArray(nodeJSON.content)) {
       nodeJSON.content = nodeJSON.content.map(walk)
     }
-    if (nodeJSON.type === "text" && typeof nodeJSON.text === "string") {
+    if (nodeJSON.type === "text" && isString(nodeJSON.text)) {
       if (nodeJSON.marks && Array.isArray(nodeJSON.marks)) {
         for (var mi = 0; mi < nodeJSON.marks.length; mi += 1) {
           if (nodeJSON.marks[mi] && nodeJSON.marks[mi].type === "code") {
@@ -806,8 +806,8 @@ function replaceRawInlineInDoc(schema: Schema, doc: PMNode): PMNode {
   // Keep the transformation simple and explicit: rebuild via JSON.
   var json = doc.toJSON()
 
-  function walk(nodeJSON: any): any {
-    if (!nodeJSON || typeof nodeJSON !== "object") {
+  function walk(nodeJSON: JSONNodeData): any {
+    if (!isObject(nodeJSON)) {
       return nodeJSON
     }
     if (nodeJSON.type === "raw_block" || nodeJSON.type === "raw_inline" || nodeJSON.type === "code_block") {
@@ -816,7 +816,7 @@ function replaceRawInlineInDoc(schema: Schema, doc: PMNode): PMNode {
     if (nodeJSON.content && Array.isArray(nodeJSON.content)) {
       nodeJSON.content = nodeJSON.content.map(walk)
     }
-    if (nodeJSON.type === "text" && typeof nodeJSON.text === "string") {
+    if (nodeJSON.type === "text" && isString(nodeJSON.text)) {
       if (nodeJSON.marks && Array.isArray(nodeJSON.marks)) {
         for (var mi = 0; mi < nodeJSON.marks.length; mi += 1) {
           if (nodeJSON.marks[mi] && nodeJSON.marks[mi].type === "code") {

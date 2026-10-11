@@ -3,6 +3,7 @@ import { history, historyKeymap, defaultKeymap, indentWithTab } from "@codemirro
 import { defaultHighlightStyle, indentUnit, syntaxHighlighting } from "@codemirror/language"
 import { markdown } from "@codemirror/lang-markdown"
 import { drawSelection, EditorView, keymap } from "@codemirror/view"
+import { isFunction } from "../utils"
 
 export interface SourceEditorAdapter {
   getValue: () => string;
@@ -19,7 +20,7 @@ export function createCodeMirrorSourceEditor(
   onChange?: (value: string) => void
 ): SourceEditorAdapter {
   var updateListener = EditorView.updateListener.of(function (update) {
-    if (!update.docChanged || typeof onChange !== "function") {
+    if (!update.docChanged || !isFunction(onChange)) {
       return
     }
     onChange(update.state.doc.toString())

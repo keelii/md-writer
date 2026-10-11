@@ -1,5 +1,6 @@
 import { DialogAction, DialogResult } from "../types"
 import { SvgIcon } from "../icons"
+import { isString, isFunction } from "../utils"
 import { h } from "../jsx"
 import "./dialog.css"
 
@@ -111,18 +112,18 @@ export function runManagedDialog(options: RunDialogOptions): Promise<DialogResul
   var customButtons = options.customButtons || []
 
   return new Promise(function (resolve) {
-    if (typeof activeDialogFinish === "function") {
+    if (isFunction(activeDialogFinish)) {
       activeDialogFinish("cancel", "")
     }
 
     var done = false
 
     function getDialogValue(): string {
-      if (typeof options.getValue === "function") {
+      if (isFunction(options.getValue)) {
         return String(options.getValue(backdrop))
       }
       var input = backdrop.querySelector('[data-role~="md-editor-dialog-value"]') as HTMLInputElement | null
-      return input && typeof input.value === "string" ? input.value : ""
+      return input && isString(input.value) ? input.value : ""
     }
 
     function cleanup() {
@@ -198,7 +199,7 @@ export function runManagedDialog(options: RunDialogOptions): Promise<DialogResul
     document.addEventListener("keydown", onBackdropKeydown, true)
     activeDialogFinish = finish
 
-    if (typeof options.onOpen === "function") {
+    if (isFunction(options.onOpen)) {
       options.onOpen(backdrop)
     }
 
@@ -213,9 +214,9 @@ export function runManagedDialog(options: RunDialogOptions): Promise<DialogResul
       var focusTarget = options.focusSelector
         ? backdrop.querySelector(options.focusSelector) as HTMLElement | null
         : null
-      if (focusTarget && typeof focusTarget.focus === "function") {
+      if (focusTarget && isFunction(focusTarget.focus)) {
         focusTarget.focus()
-        if (typeof (focusTarget as HTMLInputElement).select === "function") {
+        if (isFunction((focusTarget as HTMLInputElement).select)) {
           (focusTarget as HTMLInputElement).select()
         }
       }

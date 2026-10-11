@@ -37,6 +37,7 @@ import { Node as PMNode } from "prosemirror-model"
 import { Plugin, PluginKey, Selection } from "prosemirror-state"
 import { Decoration, DecorationSet } from "prosemirror-view"
 import { SvgIcon } from "../icons"
+import { isNumber } from "../utils"
 import { NodeViewContext } from "./nodeviews/types"
 import {
   applyTableMutationWithContext,
@@ -219,7 +220,7 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
 
   function getTablePos(): number {
     var pos = ctx.getPos()
-    return typeof pos === "number" ? pos : -1
+    return isNumber(pos) ? pos : -1
   }
 
   // 行元素（DOM 顺序 = 规范化后的 head 行 + body 行顺序）

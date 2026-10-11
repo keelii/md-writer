@@ -3,12 +3,13 @@ import { EditorState, NodeSelection, Selection } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
 import { InputRule } from "prosemirror-inputrules"
 import { EditorDispatch, JSONNodeData, TableRowMeta, TableRowJSONMeta, TableContext, TableMutation, TableMutationResult, TableSections } from "../types"
+import { isFunction, isNumber, isObject } from "../utils"
 
 function createEmptyTableCellNode(cellType: NodeType | undefined) {
   if (!cellType) {
     return null
   }
-  if (typeof cellType.createAndFill === "function") {
+  if (isFunction(cellType.createAndFill)) {
     var filled = cellType.createAndFill()
     if (filled) {
       return filled
@@ -79,7 +80,7 @@ export function insertDefaultTableNode(view: EditorView, schema: Schema) {
 
 export function getTableRowsFromNode(tableNode: PMNode): TableRowMeta[] {
   var rows: TableRowMeta[] = []
-  if (!tableNode || typeof tableNode.childCount !== "number") {
+  if (!tableNode || !isNumber(tableNode.childCount)) {
     return rows
   }
 
@@ -148,7 +149,7 @@ function getTableRowsFromJSON(tableJSON: JSONNodeData): TableRowJSONMeta[] {
 
   for (var index = 0; index < content.length; index += 1) {
     var child = content[index]
-    if (!child || typeof child !== "object") {
+    if (!isObject(child)) {
       continue
     }
 
@@ -157,7 +158,7 @@ function getTableRowsFromJSON(tableJSON: JSONNodeData): TableRowJSONMeta[] {
       var sectionRows = Array.isArray(child.content) ? child.content : []
       for (var rowIndex = 0; rowIndex < sectionRows.length; rowIndex += 1) {
         var row = sectionRows[rowIndex]
-        if (!row || typeof row !== "object" || row.type !== "table_row") {
+        if (!isObject(row) || row.type !== "table_row") {
           continue
         }
         rows.push({
@@ -660,7 +661,7 @@ function createEmptyCellJSON(typeName: string, align?: string | null): JSONNodeD
 }
 
 function ensureRowCells(rowJSON: JSONNodeData, cellType: string) {
-  if (!rowJSON || typeof rowJSON !== "object") {
+  if (!isObject(rowJSON)) {
     return
   }
   if (!Array.isArray(rowJSON.content)) {
@@ -672,7 +673,7 @@ function ensureRowCells(rowJSON: JSONNodeData, cellType: string) {
 
   for (var cellIndex = 0; cellIndex < rowJSON.content.length; cellIndex += 1) {
     var cell = rowJSON.content[cellIndex]
-    if (!cell || typeof cell !== "object") {
+    if (!isObject(cell)) {
       rowJSON.content[cellIndex] = createEmptyCellJSON(cellType)
       continue
     }
@@ -776,7 +777,7 @@ function getTableCellContentOffset(tableNode: PMNode, rowIndex: number, colIndex
 
 export function applyTableMutation(state: EditorState, dispatch: EditorDispatch, mutate: TableMutation) {
   var context = getTableContext(state)
-  if (!context || typeof mutate !== "function") {
+  if (!context || !isFunction(mutate)) {
     return false
   }
   return applyTableMutationWithContext(state, dispatch, context, mutate)
@@ -790,7 +791,7 @@ export function applyTableMutationWithContext(
   context: TableContext,
   mutate: TableMutation
 ) {
-  if (typeof mutate !== "function") {
+  if (!isFunction(mutate)) {
     return false
   }
 
@@ -819,8 +820,8 @@ export function applyTableMutationWithContext(
     context.tablePos + context.tableNode.nodeSize,
     newTableNode
   )
-  var targetRow = typeof result.targetRow === "number" ? result.targetRow : context.rowIndex
-  var targetCol = typeof result.targetCol === "number" ? result.targetCol : context.colIndex
+  var targetRow = isNumber(result.targetRow) ? result.targetRow : context.rowIndex
+  var targetCol = isNumber(result.targetCol) ? result.targetCol : context.colIndex
   var cursorPos = context.tablePos + getTableCellContentOffset(newTableNode, targetRow, targetCol)
   tr = tr.setSelection(Selection.near(tr.doc.resolve(cursorPos))).scrollIntoView()
   dispatch(tr)

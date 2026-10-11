@@ -121,7 +121,7 @@ export function resolveElement(target: ElementTarget): Element | null {
   if (target instanceof Element) {
     return target
   }
-  if (typeof target === "string") {
+  if (isString(target)) {
     return document.querySelector(target)
   }
   return null
@@ -162,7 +162,7 @@ export function normalizeNewlines(input: string) {
 
 export function copyTextToClipboard(text: string): Promise<void> {
   var input = text == null ? "" : String(text)
-  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+  if (navigator.clipboard && isFunction(navigator.clipboard.writeText)) {
     return navigator.clipboard.writeText(input)
   }
   return new Promise<void>(function (resolve, reject) {
@@ -191,7 +191,7 @@ export function readFileAsDataURL(file: File): Promise<string> {
   return new Promise<string>(function (resolve, reject) {
     var reader = new FileReader()
     reader.onload = function () {
-      resolve(typeof reader.result === "string" ? reader.result : "")
+      resolve(isString(reader.result) ? reader.result : "")
     }
     reader.onerror = function () {
       reject(reader.error || new Error("read file failed"))

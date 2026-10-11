@@ -1,5 +1,5 @@
 import { MDWriterInitOptions, SvgPanZoomInstance } from "../../types"
-import { loadStyle, loadScript } from "../../utils"
+import { loadStyle, loadScript, isFunction } from "../../utils"
 
 function loadResource(resource: string): Promise<void> {
   if (!resource) {
@@ -74,7 +74,7 @@ export function loadKatexPreviewRuntime(opts: Pick<MDWriterInitOptions, "katexAs
   opts.katexAssets = opts.katexAssets || ["./static/katex/katex.min.css", "./static/katex/katex.min.js"]
 
   var loadPromise = loadResources(opts.katexAssets).then(function () {
-    if (!window.katex || typeof window.katex.render !== "function") {
+    if (!window.katex || !isFunction(window.katex.render)) {
       throw new Error("KaTeX runtime unavailable")
     }
     return window.katex

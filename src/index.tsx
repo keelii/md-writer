@@ -2,7 +2,7 @@ import { Node as PMNode } from "prosemirror-model"
 import { EditorState, NodeSelection } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
 import { MDWriterInitOptions, MDWriterInstance } from "./types"
-import { resolveElement, setElementVisible, addClass, removeClass, toggleClass } from "./utils"
+import { resolveElement, setElementVisible, addClass, removeClass, toggleClass, isString, isFunction } from "./utils"
 import { buildSchema } from "./prosemirror/schema"
 import { buildMarkdownParser, buildMarkdownSerializer, parseMarkdown } from "./prosemirror/markdown"
 import { buildPlugins, createMarkdownPastePlugin } from "./prosemirror/plugins"
@@ -110,7 +110,7 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
   var storageBackend: StorageBackend | null = opts.storage === "localStorage" ? "localStorage" : null
   var storedViewState: Partial<MDWriterViewState> | null = storageBackend ? readStoredState(storageBackend) : null
   var initialMarkdown: string | null = storageBackend ? readStoredContent(storageBackend) : null
-  if (initialMarkdown === null && typeof opts.initialMarkdown === "string") {
+  if (initialMarkdown === null && isString(opts.initialMarkdown)) {
     initialMarkdown = opts.initialMarkdown
   }
   if (initialMarkdown === null) {
@@ -177,7 +177,7 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
     if (storageBackend) {
       schedulePersistContent(markdown)
     }
-    if (typeof opts.onChange === "function") {
+    if (isFunction(opts.onChange)) {
       opts.onChange(markdown)
     }
     return markdown

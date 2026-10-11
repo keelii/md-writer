@@ -5,6 +5,7 @@ import { redo, undo } from "prosemirror-history"
 import { wrapInList } from "prosemirror-schema-list"
 import { EditorCommand, TableMutation } from "../types"
 import { isPreviewBlock } from "./nodeviews/kinds"
+import { isFunction } from "../utils"
 import { applyTableMutation, createTableMoveColumnMutation, createTableMoveRowMutation, insertDefaultTableNode, mutateTableAddColumn, mutateTableAddRow, mutateTableDeleteColumn, mutateTableDeleteRow } from "./table"
 
 function isMarkActive(state: EditorState, markType: MarkType) {
@@ -129,7 +130,7 @@ function createListCommand(listType: NodeType, oppositeType: NodeType | undefine
       var fromDepth = findDeepestAncestorDepth(selection.$from, oppositeType)
       var toDepth = findDeepestAncestorDepth(selection.$to, oppositeType)
       if (fromDepth > 0 || toDepth > 0) {
-        if (typeof dispatch !== "function") {
+        if (!isFunction(dispatch)) {
           return true
         }
         var tr = state.tr
@@ -165,7 +166,7 @@ function createBlockquoteCommand(blockquote: NodeType): EditorCommand {
 
 function createTableInsertCommand(schema: Schema): EditorCommand {
   return function (state, dispatch, view) {
-    if (typeof dispatch !== "function") {
+    if (!isFunction(dispatch)) {
       return true
     }
     if (!view) {
@@ -184,7 +185,7 @@ function createTableMutationCommand(mutate: TableMutation): EditorCommand {
 // 链接命令（纯）：编辑已有链接 —— 清除 range 上的旧 link mark 后应用新 href
 export function createLinkEditCommand(link: MarkType, range: {from: number, to: number}, href: string): EditorCommand {
   return function (state, dispatch) {
-    if (typeof dispatch !== "function") {
+    if (!isFunction(dispatch)) {
       return true
     }
     var mark = link.create({href: href, title: null})
@@ -198,7 +199,7 @@ export function createLinkEditCommand(link: MarkType, range: {from: number, to: 
 // 链接命令（纯）：移除 range 上的 link mark
 export function createLinkRemoveCommand(link: MarkType, range: {from: number, to: number}): EditorCommand {
   return function (state, dispatch) {
-    if (typeof dispatch !== "function") {
+    if (!isFunction(dispatch)) {
       return true
     }
     dispatch(state.tr.removeMark(range.from, range.to, link).scrollIntoView())
@@ -209,7 +210,7 @@ export function createLinkRemoveCommand(link: MarkType, range: {from: number, to
 // 链接命令（纯）：新建链接 —— 选区非空时对选区应用 mark；空选区时插入 href 文本并应用 mark
 export function createLinkApplyCommand(link: MarkType, from: number, to: number, href: string): EditorCommand {
   return function (state, dispatch) {
-    if (typeof dispatch !== "function") {
+    if (!isFunction(dispatch)) {
       return true
     }
     var mark = link.create({href: href, title: null})
@@ -231,7 +232,7 @@ export function createImageInsertCommand(schema: Schema, attrs: { src: string; a
     if (!image || !attrs || !attrs.src) {
       return false
     }
-    if (typeof dispatch !== "function") {
+    if (!isFunction(dispatch)) {
       return true
     }
     var node = image.create({
@@ -254,7 +255,7 @@ export function createPreviewSourceReplaceCommand(pos: number, source: string): 
     if (!node || !isPreviewBlock(node)) {
       return false
     }
-    if (typeof dispatch !== "function") {
+    if (!isFunction(dispatch)) {
       return true
     }
     if (node.textContent === source) {
@@ -304,7 +305,7 @@ export function moveSelectionAcrossBlock(dir: number): EditorCommand {
         return false
       }
       if (!isPreviewBlock(target.$head.parent)) {
-        if (typeof dispatch !== "function") {
+        if (!isFunction(dispatch)) {
           return true
         }
         dispatch(state.tr.setSelection(target).scrollIntoView())

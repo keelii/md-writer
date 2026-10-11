@@ -13095,6 +13095,18 @@ var MDWriter = (() => {
   }
 
   // src/utils.tsx
+  function isString(s) {
+    return typeof s === "string";
+  }
+  function isNumber(s) {
+    return typeof s === "number";
+  }
+  function isObject(s) {
+    return typeof s === "object" && s !== null;
+  }
+  function isFunction(s) {
+    return typeof s === "function";
+  }
   var RHYTHM_UNIT_FALLBACK = 28;
   function stopEvent(event) {
     event.preventDefault();
@@ -13120,7 +13132,7 @@ var MDWriter = (() => {
     if (target instanceof Element) {
       return target;
     }
-    if (typeof target === "string") {
+    if (isString(target)) {
       return document.querySelector(target);
     }
     return null;
@@ -13152,7 +13164,7 @@ var MDWriter = (() => {
   }
   function copyTextToClipboard(text2) {
     var input = text2 == null ? "" : String(text2);
-    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+    if (navigator.clipboard && isFunction(navigator.clipboard.writeText)) {
       return navigator.clipboard.writeText(input);
     }
     return new Promise(function(resolve, reject) {
@@ -13178,7 +13190,7 @@ var MDWriter = (() => {
     return new Promise(function(resolve, reject) {
       var reader = new FileReader();
       reader.onload = function() {
-        resolve(typeof reader.result === "string" ? reader.result : "");
+        resolve(isString(reader.result) ? reader.result : "");
       };
       reader.onerror = function() {
         reject(reader.error || new Error("read file failed"));
@@ -13275,7 +13287,7 @@ var MDWriter = (() => {
     isPunctChar: () => isPunctChar,
     isPunctCharCode: () => isPunctCharCode,
     isSpace: () => isSpace,
-    isString: () => isString,
+    isString: () => isString2,
     isValidEntityCode: () => isValidEntityCode,
     isWhiteSpace: () => isWhiteSpace,
     lib: () => lib,
@@ -13758,14 +13770,14 @@ var MDWriter = (() => {
     BinTrieFlags2[BinTrieFlags2["BRANCH_LENGTH"] = 16256] = "BRANCH_LENGTH";
     BinTrieFlags2[BinTrieFlags2["JUMP_TABLE"] = 127] = "JUMP_TABLE";
   })(BinTrieFlags || (BinTrieFlags = {}));
-  function isNumber(code2) {
+  function isNumber2(code2) {
     return code2 >= CharCodes.ZERO && code2 <= CharCodes.NINE;
   }
   function isHexadecimalCharacter(code2) {
     return code2 >= CharCodes.UPPER_A && code2 <= CharCodes.UPPER_F || code2 >= CharCodes.LOWER_A && code2 <= CharCodes.LOWER_F;
   }
   function isAsciiAlphaNumeric(code2) {
-    return code2 >= CharCodes.UPPER_A && code2 <= CharCodes.UPPER_Z || code2 >= CharCodes.LOWER_A && code2 <= CharCodes.LOWER_Z || isNumber(code2);
+    return code2 >= CharCodes.UPPER_A && code2 <= CharCodes.UPPER_Z || code2 >= CharCodes.LOWER_A && code2 <= CharCodes.LOWER_Z || isNumber2(code2);
   }
   function isEntityInAttributeInvalidEnd(code2) {
     return code2 === CharCodes.EQUALS || isAsciiAlphaNumeric(code2);
@@ -13882,7 +13894,7 @@ var MDWriter = (() => {
       const startIdx = offset;
       while (offset < str.length) {
         const char = str.charCodeAt(offset);
-        if (isNumber(char) || isHexadecimalCharacter(char)) {
+        if (isNumber2(char) || isHexadecimalCharacter(char)) {
           offset += 1;
         } else {
           this.addToNumericResult(str, startIdx, offset, 16);
@@ -13905,7 +13917,7 @@ var MDWriter = (() => {
       const startIdx = offset;
       while (offset < str.length) {
         const char = str.charCodeAt(offset);
-        if (isNumber(char)) {
+        if (isNumber2(char)) {
           offset += 1;
         } else {
           this.addToNumericResult(str, startIdx, offset, 10);
@@ -14176,7 +14188,7 @@ var MDWriter = (() => {
   function _class(obj) {
     return Object.prototype.toString.call(obj);
   }
-  function isString(obj) {
+  function isString2(obj) {
     return _class(obj) === "[object String]";
   }
   var _hasOwnProperty = Object.prototype.hasOwnProperty;
@@ -17882,16 +17894,16 @@ var MDWriter = (() => {
   function _class2(obj) {
     return Object.prototype.toString.call(obj);
   }
-  function isString2(obj) {
+  function isString3(obj) {
     return _class2(obj) === "[object String]";
   }
-  function isObject(obj) {
+  function isObject2(obj) {
     return _class2(obj) === "[object Object]";
   }
   function isRegExp(obj) {
     return _class2(obj) === "[object RegExp]";
   }
-  function isFunction(obj) {
+  function isFunction2(obj) {
     return _class2(obj) === "[object Function]";
   }
   function escapeRE2(str) {
@@ -18011,15 +18023,15 @@ var MDWriter = (() => {
       }
       const compiled = { validate: null, link: null };
       self.__compiled__[name2] = compiled;
-      if (isObject(val)) {
+      if (isObject2(val)) {
         if (isRegExp(val.validate)) {
           compiled.validate = createValidator(val.validate);
-        } else if (isFunction(val.validate)) {
+        } else if (isFunction2(val.validate)) {
           compiled.validate = val.validate;
         } else {
           schemaError(name2, val);
         }
-        if (isFunction(val.normalize)) {
+        if (isFunction2(val.normalize)) {
           compiled.normalize = val.normalize;
         } else if (!val.normalize) {
           compiled.normalize = createNormalizer();
@@ -18028,7 +18040,7 @@ var MDWriter = (() => {
         }
         return;
       }
-      if (isString2(val)) {
+      if (isString3(val)) {
         aliases.push(name2);
         return;
       }
@@ -18703,7 +18715,7 @@ var MDWriter = (() => {
       return new MarkdownIt(presetName, options);
     }
     if (!options) {
-      if (!isString(presetName)) {
+      if (!isString2(presetName)) {
         options = presetName || {};
         presetName = "default";
       }
@@ -18730,7 +18742,7 @@ var MDWriter = (() => {
   };
   MarkdownIt.prototype.configure = function(presets) {
     const self = this;
-    if (isString(presets)) {
+    if (isString2(presets)) {
       const presetName = presets;
       presets = config[presetName];
       if (!presets) {
@@ -20420,7 +20432,7 @@ var MDWriter = (() => {
       return out;
     }
     function walk(nodeJSON) {
-      if (!nodeJSON || typeof nodeJSON !== "object") {
+      if (!isObject(nodeJSON)) {
         return nodeJSON;
       }
       if (nodeJSON.type === "raw_block" || nodeJSON.type === "raw_inline" || nodeJSON.type === "code_block") {
@@ -20429,7 +20441,7 @@ var MDWriter = (() => {
       if (nodeJSON.content && Array.isArray(nodeJSON.content)) {
         nodeJSON.content = nodeJSON.content.map(walk);
       }
-      if (nodeJSON.type === "text" && typeof nodeJSON.text === "string") {
+      if (nodeJSON.type === "text" && isString(nodeJSON.text)) {
         if (nodeJSON.marks && Array.isArray(nodeJSON.marks)) {
           for (var mi = 0; mi < nodeJSON.marks.length; mi += 1) {
             if (nodeJSON.marks[mi] && nodeJSON.marks[mi].type === "code") {
@@ -20471,7 +20483,7 @@ var MDWriter = (() => {
   function replaceRawInlineInDoc(schema2, doc4) {
     var json = doc4.toJSON();
     function walk(nodeJSON) {
-      if (!nodeJSON || typeof nodeJSON !== "object") {
+      if (!isObject(nodeJSON)) {
         return nodeJSON;
       }
       if (nodeJSON.type === "raw_block" || nodeJSON.type === "raw_inline" || nodeJSON.type === "code_block") {
@@ -20480,7 +20492,7 @@ var MDWriter = (() => {
       if (nodeJSON.content && Array.isArray(nodeJSON.content)) {
         nodeJSON.content = nodeJSON.content.map(walk);
       }
-      if (nodeJSON.type === "text" && typeof nodeJSON.text === "string") {
+      if (nodeJSON.type === "text" && isString(nodeJSON.text)) {
         if (nodeJSON.marks && Array.isArray(nodeJSON.marks)) {
           for (var mi = 0; mi < nodeJSON.marks.length; mi += 1) {
             if (nodeJSON.marks[mi] && nodeJSON.marks[mi].type === "code") {
@@ -22404,7 +22416,7 @@ var MDWriter = (() => {
     if (!cellType) {
       return null;
     }
-    if (typeof cellType.createAndFill === "function") {
+    if (isFunction(cellType.createAndFill)) {
       var filled = cellType.createAndFill();
       if (filled) {
         return filled;
@@ -22466,7 +22478,7 @@ var MDWriter = (() => {
   }
   function getTableRowsFromNode(tableNode) {
     var rows = [];
-    if (!tableNode || typeof tableNode.childCount !== "number") {
+    if (!tableNode || !isNumber(tableNode.childCount)) {
       return rows;
     }
     var offset = 1;
@@ -22527,7 +22539,7 @@ var MDWriter = (() => {
     var bodyCount = 0;
     for (var index = 0; index < content2.length; index += 1) {
       var child = content2[index];
-      if (!child || typeof child !== "object") {
+      if (!isObject(child)) {
         continue;
       }
       if (child.type === "table_head" || child.type === "table_body") {
@@ -22535,7 +22547,7 @@ var MDWriter = (() => {
         var sectionRows = Array.isArray(child.content) ? child.content : [];
         for (var rowIndex = 0; rowIndex < sectionRows.length; rowIndex += 1) {
           var row = sectionRows[rowIndex];
-          if (!row || typeof row !== "object" || row.type !== "table_row") {
+          if (!isObject(row) || row.type !== "table_row") {
             continue;
           }
           rows.push({
@@ -22954,7 +22966,7 @@ var MDWriter = (() => {
     return cell;
   }
   function ensureRowCells(rowJSON, cellType) {
-    if (!rowJSON || typeof rowJSON !== "object") {
+    if (!isObject(rowJSON)) {
       return;
     }
     if (!Array.isArray(rowJSON.content)) {
@@ -22965,7 +22977,7 @@ var MDWriter = (() => {
     }
     for (var cellIndex = 0; cellIndex < rowJSON.content.length; cellIndex += 1) {
       var cell = rowJSON.content[cellIndex];
-      if (!cell || typeof cell !== "object") {
+      if (!isObject(cell)) {
         rowJSON.content[cellIndex] = createEmptyCellJSON(cellType);
         continue;
       }
@@ -23058,13 +23070,13 @@ var MDWriter = (() => {
   }
   function applyTableMutation(state, dispatch, mutate) {
     var context = getTableContext(state);
-    if (!context || typeof mutate !== "function") {
+    if (!context || !isFunction(mutate)) {
       return false;
     }
     return applyTableMutationWithContext(state, dispatch, context, mutate);
   }
   function applyTableMutationWithContext(state, dispatch, context, mutate) {
-    if (typeof mutate !== "function") {
+    if (!isFunction(mutate)) {
       return false;
     }
     var tableJSON = cloneNodeJSON(context.tableNode);
@@ -23089,8 +23101,8 @@ var MDWriter = (() => {
       context.tablePos + context.tableNode.nodeSize,
       newTableNode
     );
-    var targetRow = typeof result.targetRow === "number" ? result.targetRow : context.rowIndex;
-    var targetCol = typeof result.targetCol === "number" ? result.targetCol : context.colIndex;
+    var targetRow = isNumber(result.targetRow) ? result.targetRow : context.rowIndex;
+    var targetCol = isNumber(result.targetCol) ? result.targetCol : context.colIndex;
     var cursorPos = context.tablePos + getTableCellContentOffset(newTableNode, targetRow, targetCol);
     tr = tr.setSelection(Selection.near(tr.doc.resolve(cursorPos))).scrollIntoView();
     dispatch(tr);
@@ -23525,7 +23537,7 @@ var MDWriter = (() => {
         var fromDepth = findDeepestAncestorDepth(selection.$from, oppositeType);
         var toDepth = findDeepestAncestorDepth(selection.$to, oppositeType);
         if (fromDepth > 0 || toDepth > 0) {
-          if (typeof dispatch !== "function") {
+          if (!isFunction(dispatch)) {
             return true;
           }
           var tr = state.tr;
@@ -23557,7 +23569,7 @@ var MDWriter = (() => {
   }
   function createTableInsertCommand(schema2) {
     return function(state, dispatch, view) {
-      if (typeof dispatch !== "function") {
+      if (!isFunction(dispatch)) {
         return true;
       }
       if (!view) {
@@ -23573,7 +23585,7 @@ var MDWriter = (() => {
   }
   function createLinkEditCommand(link2, range, href) {
     return function(state, dispatch) {
-      if (typeof dispatch !== "function") {
+      if (!isFunction(dispatch)) {
         return true;
       }
       var mark = link2.create({ href, title: null });
@@ -23585,7 +23597,7 @@ var MDWriter = (() => {
   }
   function createLinkRemoveCommand(link2, range) {
     return function(state, dispatch) {
-      if (typeof dispatch !== "function") {
+      if (!isFunction(dispatch)) {
         return true;
       }
       dispatch(state.tr.removeMark(range.from, range.to, link2).scrollIntoView());
@@ -23594,7 +23606,7 @@ var MDWriter = (() => {
   }
   function createLinkApplyCommand(link2, from2, to, href) {
     return function(state, dispatch) {
-      if (typeof dispatch !== "function") {
+      if (!isFunction(dispatch)) {
         return true;
       }
       var mark = link2.create({ href, title: null });
@@ -23614,7 +23626,7 @@ var MDWriter = (() => {
       if (!image2 || !attrs2 || !attrs2.src) {
         return false;
       }
-      if (typeof dispatch !== "function") {
+      if (!isFunction(dispatch)) {
         return true;
       }
       var node = image2.create({
@@ -23632,7 +23644,7 @@ var MDWriter = (() => {
       if (!node || !isPreviewBlock(node)) {
         return false;
       }
-      if (typeof dispatch !== "function") {
+      if (!isFunction(dispatch)) {
         return true;
       }
       if (node.textContent === source) {
@@ -23674,7 +23686,7 @@ var MDWriter = (() => {
           return false;
         }
         if (!isPreviewBlock(target.$head.parent)) {
-          if (typeof dispatch !== "function") {
+          if (!isFunction(dispatch)) {
             return true;
           }
           dispatch(state.tr.setSelection(target).scrollIntoView());
@@ -24198,7 +24210,7 @@ var MDWriter = (() => {
         }
         dom.addEventListener("load", onLoad, true);
         var observer = null;
-        if (typeof ResizeObserver === "function") {
+        if (isFunction(ResizeObserver)) {
           observer = new ResizeObserver(function() {
             snapAll();
           });
@@ -29340,16 +29352,16 @@ var MDWriter = (() => {
     var backdrop = ensureDialogBackdrop(options);
     var customButtons = options.customButtons || [];
     return new Promise(function(resolve) {
-      if (typeof activeDialogFinish === "function") {
+      if (isFunction(activeDialogFinish)) {
         activeDialogFinish("cancel", "");
       }
       var done = false;
       function getDialogValue() {
-        if (typeof options.getValue === "function") {
+        if (isFunction(options.getValue)) {
           return String(options.getValue(backdrop));
         }
         var input = backdrop.querySelector('[data-role~="md-editor-dialog-value"]');
-        return input && typeof input.value === "string" ? input.value : "";
+        return input && isString(input.value) ? input.value : "";
       }
       function cleanup() {
         backdrop.removeEventListener("click", onBackdropClick, true);
@@ -29415,7 +29427,7 @@ var MDWriter = (() => {
       backdrop.addEventListener("click", onBackdropClick, true);
       document.addEventListener("keydown", onBackdropKeydown, true);
       activeDialogFinish = finish;
-      if (typeof options.onOpen === "function") {
+      if (isFunction(options.onOpen)) {
         options.onOpen(backdrop);
       }
       if (!openManagedDialog(options.id, options.opener || null)) {
@@ -29426,9 +29438,9 @@ var MDWriter = (() => {
       }
       window.setTimeout(function() {
         var focusTarget = options.focusSelector ? backdrop.querySelector(options.focusSelector) : null;
-        if (focusTarget && typeof focusTarget.focus === "function") {
+        if (focusTarget && isFunction(focusTarget.focus)) {
           focusTarget.focus();
-          if (typeof focusTarget.select === "function") {
+          if (isFunction(focusTarget.select)) {
             focusTarget.select();
           }
         }
@@ -29485,12 +29497,12 @@ var MDWriter = (() => {
     return input;
   }
   function resolveImageAttrs(file, opts) {
-    if (opts && typeof opts.onImageUpload === "function") {
+    if (opts && isFunction(opts.onImageUpload)) {
       return Promise.resolve(opts.onImageUpload(file)).then(function(result) {
-        if (typeof result === "string") {
+        if (isString(result)) {
           return { src: result, alt: file.name || "", title: null };
         }
-        if (result && typeof result === "object") {
+        if (isObject(result)) {
           var src = result.src || result.url || "";
           var alt = result.alt == null ? file.name || "" : String(result.alt);
           var title = result.title == null ? null : String(result.title);
@@ -54452,7 +54464,7 @@ var MDWriter = (() => {
   // src/codemirror/source-editor.ts
   function createCodeMirrorSourceEditor(container, initialValue, onChange) {
     var updateListener2 = EditorView3.updateListener.of(function(update) {
-      if (!update.docChanged || typeof onChange !== "function") {
+      if (!update.docChanged || !isFunction(onChange)) {
         return;
       }
       onChange(update.state.doc.toString());
@@ -54565,7 +54577,7 @@ var MDWriter = (() => {
     }
     opts.katexAssets = opts.katexAssets || ["./static/katex/katex.min.css", "./static/katex/katex.min.js"];
     var loadPromise = loadResources(opts.katexAssets).then(function() {
-      if (!window.katex || typeof window.katex.render !== "function") {
+      if (!window.katex || !isFunction(window.katex.render)) {
         throw new Error("KaTeX runtime unavailable");
       }
       return window.katex;
@@ -55714,13 +55726,13 @@ var MDWriter = (() => {
           return;
         }
         var action = String(target.getAttribute("data-md-editor-view") || "").trim();
-        if (action === "toggle_source" && runtime && typeof runtime.toggleSourceMode === "function") {
+        if (action === "toggle_source" && runtime && isFunction(runtime.toggleSourceMode)) {
           runtime.toggleSourceMode();
         }
-        if (action === "toggle_toc" && runtime && typeof runtime.toggleToc === "function") {
+        if (action === "toggle_toc" && runtime && isFunction(runtime.toggleToc)) {
           runtime.toggleToc();
         }
-        if (action === "toggle_rhythm" && runtime && typeof runtime.toggleRhythm === "function") {
+        if (action === "toggle_rhythm" && runtime && isFunction(runtime.toggleRhythm)) {
           runtime.toggleRhythm();
         }
         if (action === "show_help") {
@@ -56041,13 +56053,13 @@ var MDWriter = (() => {
         return;
       }
       try {
-        if (typeof panZoom.resize === "function") {
+        if (isFunction(panZoom.resize)) {
           panZoom.resize();
         }
-        if (typeof panZoom.fit === "function") {
+        if (isFunction(panZoom.fit)) {
           panZoom.fit();
         }
-        if (typeof panZoom.center === "function") {
+        if (isFunction(panZoom.center)) {
           panZoom.center();
         }
       } catch (error2) {
@@ -56124,7 +56136,7 @@ var MDWriter = (() => {
       });
     }
     function onWheel(event) {
-      if (!event.metaKey || !panZoom || typeof panZoom.zoomAtPointBy !== "function") {
+      if (!event.metaKey || !panZoom || !isFunction(panZoom.zoomAtPointBy)) {
         return;
       }
       var delta = Number(event.deltaY || 0);
@@ -56198,7 +56210,7 @@ var MDWriter = (() => {
           return;
         }
         diagram.innerHTML = result.svg || "";
-        if (typeof result.bindFunctions === "function") {
+        if (isFunction(result.bindFunctions)) {
           result.bindFunctions(diagram);
         }
         if (isPreviewFullscreen(dom)) {
@@ -56692,7 +56704,7 @@ var MDWriter = (() => {
     var openAlignMenuEl = null;
     function getTablePos() {
       var pos = ctx.getPos();
-      return typeof pos === "number" ? pos : -1;
+      return isNumber(pos) ? pos : -1;
     }
     function collectRowEls() {
       var rows = [];
@@ -57663,7 +57675,7 @@ var MDWriter = (() => {
   function readStoredContent(backend) {
     try {
       var raw = window.localStorage.getItem(STORAGE_CONTENT_KEY);
-      return typeof raw === "string" ? raw : null;
+      return isString(raw) ? raw : null;
     } catch (error2) {
       return null;
     }
@@ -57677,11 +57689,11 @@ var MDWriter = (() => {
   function readStoredState(backend) {
     try {
       var raw = window.localStorage.getItem(STORAGE_STATE_KEY);
-      if (typeof raw !== "string" || raw === "") {
+      if (!isString(raw) || raw === "") {
         return null;
       }
       var parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed !== "object") {
+      if (!isObject(parsed)) {
         return null;
       }
       return parsed;
@@ -57740,7 +57752,7 @@ var MDWriter = (() => {
     var storageBackend = opts.storage === "localStorage" ? "localStorage" : null;
     var storedViewState = storageBackend ? readStoredState(storageBackend) : null;
     var initialMarkdown = storageBackend ? readStoredContent(storageBackend) : null;
-    if (initialMarkdown === null && typeof opts.initialMarkdown === "string") {
+    if (initialMarkdown === null && isString(opts.initialMarkdown)) {
       initialMarkdown = opts.initialMarkdown;
     }
     if (initialMarkdown === null) {
@@ -57796,7 +57808,7 @@ var MDWriter = (() => {
       if (storageBackend) {
         schedulePersistContent(markdown3);
       }
-      if (typeof opts.onChange === "function") {
+      if (isFunction(opts.onChange)) {
         opts.onChange(markdown3);
       }
       return markdown3;

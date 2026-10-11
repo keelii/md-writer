@@ -9,7 +9,7 @@ import { SvgIcon } from "../icons"
 import { BlockMenuRegistration } from "./block-menu"
 import { buildBlockOpMenuDom } from "./block-op-menu"
 import { deleteBlockAt } from "./prosemirror-helpers"
-import { resolveRhythmLineHeight } from "../utils"
+import { resolveRhythmLineHeight, isFunction } from "../utils"
 import { h } from "../jsx"
 
 // 仅含一张图片的段落：WYSIWYG 下渲染为块级 div（而非 p），
@@ -141,7 +141,7 @@ export function createImageRhythmPlugin(): Plugin {
 
       dom.addEventListener("load", onLoad, true)
       var observer: ResizeObserver | null = null
-      if (typeof ResizeObserver === "function") {
+      if (isFunction(ResizeObserver)) {
         // 容器宽度变化（窗口缩放/侧栏开合）时重新对齐
         observer = new ResizeObserver(function () {
           snapAll()
