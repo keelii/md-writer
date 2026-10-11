@@ -6,10 +6,11 @@ import { Plugin } from "prosemirror-state"
 import { Node as PMNode, Schema } from "prosemirror-model"
 import { EditorView } from "prosemirror-view"
 import { SvgIcon } from "../icons"
-import { BlockMenuRegistration } from "./block-menu"
+import { BlockMenuRegistration, BlockMenuContext } from "./block-menu"
 import { buildBlockOpMenuDom } from "./block-op-menu"
-import { deleteBlockAt } from "./prosemirror-helpers"
-import { resolveRhythmLineHeight, isFunction } from "../utils"
+import { deleteBlockAt, reloadBlockAt } from "./prosemirror-helpers"
+import { buildMarkdownSerializer, serializeNodeMarkdown } from "./markdown"
+import { resolveRhythmLineHeight, isFunction, copyTextToClipboard } from "../utils"
 import { h } from "../jsx"
 
 // 仅含一张图片的段落：WYSIWYG 下渲染为块级 div（而非 p），
@@ -22,7 +23,20 @@ export function isImageOnlyParagraph(node: PMNode): boolean {
   return !!first && first.type.name === "image"
 }
 
-// 单图段落只提供删除入口，不进入标题/正文类型切换菜单。
+// 复制单图段落的 markdown 源码：按当前 doc 重读并校验仍是同一单图段落
+// （防重绘后内容已变），序列化后去掉尾部换行写入剪贴板；只读不写，
+// 不产生文档事务。剪贴板失败静默：按钮交互不弹 Dialog（Dialog 类交互归 actions.ts）。
+function copyImageSource(ctx: BlockMenuContext, schema: Schema) {
+  var current = reloadBlockAt(ctx, isImageOnlyParagraph)
+  if (!current) {
+    return
+  }
+  var serializer = buildMarkdownSerializer(schema)
+  var source = serializeNodeMarkdown(serializer, current).replace(/\s+$/, "")
+  copyTextToClipboard(source).catch(function () {})
+}
+
+// 单图段落提供复制源码与删除入口，不进入标题/正文类型切换菜单。
 export function createImageMenuRegistration(schema: Schema): BlockMenuRegistration | null {
   if (!schema.nodes.paragraph || !schema.nodes.image) return null
   return {
@@ -31,16 +45,27 @@ export function createImageMenuRegistration(schema: Schema): BlockMenuRegistrati
       return parent.type.name === "doc" && isImageOnlyParagraph(node)
     },
     buildMenu: function (ctx) {
-      return buildBlockOpMenuDom("md-editor-image-menu", [{
-        label: "删除图片",
-        icon: SvgIcon.trash,
-        run: function () {
-          // 删除整块：重读时校验仍是同一单图段落（防重绘后内容已变）
-          deleteBlockAt(ctx, function (current: PMNode) {
-            return isImageOnlyParagraph(current) && current.eq(ctx.node)
-          }, schema)
+      return buildBlockOpMenuDom("md-editor-image-menu", [
+        {
+          label: "复制",
+          icon: SvgIcon.clipboard,
+          showLabel: true,
+          run: function () {
+            copyImageSource(ctx, schema)
+          }
+        },
+        {
+          label: "删除",
+          icon: SvgIcon.trash,
+          showLabel: true,
+          run: function () {
+            // 删除整块：重读时校验仍是同一单图段落（防重绘后内容已变）
+            deleteBlockAt(ctx, function (current: PMNode) {
+              return isImageOnlyParagraph(current) && current.eq(ctx.node)
+            }, schema)
+          }
         }
-      }])
+      ], {toggleIcon: SvgIcon.image, toggleTitle: "图片操作"})
     }
   }
 }
