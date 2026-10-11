@@ -36,6 +36,10 @@ import "./styles/layout.css"
 // @ts-ignore
 import "./styles/toolbar.css"
 // @ts-ignore
+import "./styles/tooltip.css"
+// @ts-ignore
+import "./styles/dialog.css"
+// @ts-ignore
 import "./styles/themes/default.css"
 // @ts-ignore
 import "./styles/themes/classic.css"
@@ -343,13 +347,14 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
       if (opts.rawPreview) {
         // Widget：行内公式（raw_inline $…$）与行内脚注引用（[^label]），无块级选中交互
         nodeViews.raw_inline = function(node: PMNode, editorView: EditorView, getPos: () => number) {
-          var footnoteRefView = createFootnoteRefRawInlineNodeView(node)
+          var footnoteRefView = createFootnoteRefRawInlineNodeView(node, editorView, getPos)
           if (footnoteRefView) {
             return footnoteRefView
           }
           return createRawInlineMathNodeView(node, {opts: opts, view: editorView, getPos: getPos})
         }
         // raw_block 按文本内容分派 kind：iframe → Raw，math / frontmatter / svg / footnote → Widget
+        // （footnote 是 display:none 隐藏占位：定义的查看/编辑只走引用处 tooltip）
         nodeViews.raw_block = function(node: PMNode, editorView: EditorView, getPos: () => number) {
           var ctx = {opts: opts, view: editorView, getPos: getPos}
           var kind = getRawBlockKind(node.textContent)

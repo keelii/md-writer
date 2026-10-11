@@ -10,7 +10,7 @@ import { MDWriterInitOptions, MermaidRenderResult } from "../types"
 import { createCodeMirrorSourceEditor, SourceEditorAdapter } from "../codemirror/source-editor"
 import { extractMathRawBlockExpression, parseSvgRawBlockSource } from "./nodeviews/kinds"
 import { loadKatexPreviewRuntime, loadMermaidPreviewRuntime, removeMermaidRenderArtifacts } from "./nodeviews/assets"
-import "./dialog.css"
+import "./source-edit-dialog.css"
 
 var SOURCE_DIALOG_ID = "md-editor-source-dialog"
 

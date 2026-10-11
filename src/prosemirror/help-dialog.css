@@ -1,0 +1,33 @@
+/* 快捷键帮助弹窗实例样式：分组表格。
+   通用弹窗壳（遮罩/卡片/footer 按钮）见全局 styles/dialog.css；
+   宽度经 runManagedDialog 的 width 参数传入，不写死在这里。 */
+#md-editor-help-dialog .ui-dialog-body {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+#md-editor-help-dialog .ui-shortcut-section-title {
+  margin: 12px 16px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+}
+#md-editor-help-dialog .ui-shortcut-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+#md-editor-help-dialog .ui-shortcut-table td {
+  padding: 5px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: top;
+}
+#md-editor-help-dialog .ui-shortcut-table tr:last-child td {
+  border-bottom: 0;
+}
+#md-editor-help-dialog .ui-shortcut-key {
+  width: 40%;
+  white-space: nowrap;
+  font-weight: 500;
+}

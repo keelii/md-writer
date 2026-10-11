@@ -1,0 +1,105 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <script src="../dist/index.js"></script>
+  <link rel="stylesheet" href="../dist/index.css" />
+</head>
+<body>
+  <div class="md-editor theme-default"></div>
+  <pre id="result">pending</pre>
+  <script>
+    window.onerror = function (msg) {
+      document.getElementById("result").textContent = "JS ERROR: " + msg
+    }
+    var initialMarkdown = "This is a reference[^1].\n\n[^1]: first line\n    second line\n\nafter block"
+    var editor
+    function report(text) {
+      document.getElementById("result").textContent = text
+    }
+    // 用 Range 精确选中子编辑器全部内容（selectAll 会扩到整个文档）
+    function selectAllInner(inner) {
+      inner.focus()
+      var range = document.createRange()
+      range.selectNodeContents(inner)
+      var sel = document.getSelection()
+      sel.removeAllRanges()
+      sel.addRange(range)
+    }
+    function keydown(el, key, mod) {
+      el.dispatchEvent(new KeyboardEvent("keydown", {
+        key: key, metaKey: !!mod, bubbles: true, cancelable: true
+      }))
+    }
+    try {
+      editor = MDWriter.init({
+        mount: ".md-editor",
+        initialMarkdown: initialMarkdown,
+        rawPreview: true
+      })
+      var sup = document.querySelector(".md-editor-raw-inline-footnote")
+      if (!sup) {
+        report("NO SUP FOUND")
+      } else {
+        // 步骤 1：带真实坐标的 mousedown+mouseup → PM selectClickedLeaf → NodeSelection → selectNode → 子编辑器
+        // （PM 用 posAtCoords(clientX/clientY) 定位，合成事件缺坐标会解析失败）
+        var rect = sup.getBoundingClientRect()
+        var coords = { bubbles: true, button: 0, detail: 1, clientX: rect.x + rect.width / 2, clientY: rect.y + rect.height / 2 }
+        sup.dispatchEvent(new MouseEvent("mousedown", coords))
+        sup.dispatchEvent(new MouseEvent("mouseup", coords))
+        var tip = document.querySelector(".md-editor-footnote-tooltip")
+        if (!tip) {
+          report("NO TOOLTIP after mousedown, rect=" + JSON.stringify({ x: rect.x, y: rect.y, w: rect.width, h: rect.height }))
+        } else {
+          var inner = tip.querySelector(".ProseMirror")
+          if (!inner) {
+            report("NO SUB-EDITOR in tooltip: " + tip.outerHTML.slice(0, 300))
+          } else {
+            var prefill = inner.innerText.replace(/\n/g, "\\n")
+            // 步骤 2：替换首段文本，Enter 分出新段落，第二段输入文本（baseKeymap 的 splitBlock）
+            selectAllInner(inner)
+            document.execCommand("insertText", false, "bold and plain")
+            setTimeout(function () {
+              keydown(inner, "Enter", false)
+              setTimeout(function () {
+                document.execCommand("insertText", false, "second para")
+                setTimeout(function () {
+                  // 步骤 3：选中第二段应用加粗（execCommand bold → DOM 变更 → PM parseDOM 还原 strong mark）
+                  var paras = inner.querySelectorAll("p")
+                  var range = document.createRange()
+                  range.selectNodeContents(paras[paras.length - 1])
+                  var sel = document.getSelection()
+                  sel.removeAllRanges()
+                  sel.addRange(range)
+                  document.execCommand("bold")
+                  setTimeout(function () {
+                    var strongCount = inner.querySelectorAll("strong").length
+                    var paraCount = inner.querySelectorAll("p").length
+                    // 步骤 4：Cmd+Enter → keymap → moveSelectionOut → deselectNode 提交
+                    keydown(inner, "Enter", true)
+                    setTimeout(function () {
+                      var md = editor.getMarkdown()
+                      var tipClosed = !document.querySelector(".md-editor-footnote-tooltip")
+                      var expectedMd = "This is a reference[^1].\n\n[^1]: bold and plain\n    **second para**\n\nafter block"
+                      report(
+                        "PREFILL=" + prefill +
+                        " PARAS=" + paraCount +
+                        " STRONGS=" + strongCount +
+                        " TIPCLOSED=" + tipClosed +
+                        " MD=" + md.replace(/\n/g, "\\n") +
+                        " MD_OK=" + (md === expectedMd)
+                      )
+                    }, 50)
+                  }, 50)
+                }, 50)
+              }, 50)
+            }, 50)
+          }
+        }
+      }
+    } catch (e) {
+      report("INIT ERROR: " + (e && e.stack ? e.stack : e))
+    }
+  </script>
+</body>
+</html>

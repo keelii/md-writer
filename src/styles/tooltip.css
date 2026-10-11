@@ -1,0 +1,38 @@
+/* 通用 tooltip：挂在任意 position:relative 锚点下方的浮层，居中带向上的小箭头。
+   定位/边框/阴影/背景等通用形态都在这里；复用方叠加自身类名定义内容尺寸与
+   版式（如脚注引用的 .md-editor-footnote-tooltip 只定宽度和内嵌子编辑器）。 */
+
+.md-editor-tooltip {
+  position: absolute;
+  top: calc(100% + 11px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: block;
+  padding: 1em;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  font-size: 0.85em;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--fore-color);
+  cursor: default;
+}
+
+/* 居中向上的箭头：45° 旋转的方块，只保留上边和左边框拼出 V 形尖角，
+   白底盖住浮层顶边框接缝 */
+.md-editor-tooltip::after {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  margin-left: -4px;
+  width: 8px;
+  height: 8px;
+  background: #fff;
+  border-left: 1px solid var(--border-color);
+  border-top: 1px solid var(--border-color);
+  transform: rotate(45deg);
+}

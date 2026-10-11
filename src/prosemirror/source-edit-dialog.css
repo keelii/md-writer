@@ -1,0 +1,59 @@
+/* 预览块源码编辑弹窗实例样式：等宽字体 CodeMirror 编辑区 + 预览区。
+   通用弹窗壳（遮罩/卡片/footer 按钮）见全局 styles/dialog.css；
+   宽度经 runManagedDialog 的 width 参数传入，不写死在这里。 */
+#md-editor-source-dialog .ui-dialog-body {
+  max-height: 75vh;
+  overflow-y: auto;
+}
+#md-editor-source-dialog .md-editor-source-layout {
+  display: flex;
+  flex-direction: column;
+}
+#md-editor-source-dialog .md-editor-source-preview-section {
+  margin-top: 16px;
+}
+#md-editor-source-dialog .md-editor-source-preview-section[hidden] {
+  display: none;
+}
+#md-editor-source-dialog .md-editor-source-preview {
+  box-sizing: border-box;
+  min-height: 100px;
+  max-height: 35vh;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+#md-editor-source-dialog .md-editor-source-preview svg {
+  max-width: 100%;
+  height: auto;
+}
+/* CodeMirror 源码编辑区：容器承担边框/圆角/裁切，尺寸沿用旧 ui-textarea 视觉 */
+#md-editor-source-dialog .md-editor-source-editor {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 200px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: #fff;
+  overflow: hidden;
+}
+#md-editor-source-dialog .md-editor-source-editor .cm-editor {
+  min-height: 198px;
+  font-family: var(--font-code);
+  font-size: 13px;
+  color: inherit;
+  background: transparent;
+}
+#md-editor-source-dialog .md-editor-source-editor .cm-scroller {
+  max-height: 35vh;
+  overflow: auto;
+  line-height: 1.5;
+}
+#md-editor-source-dialog .md-editor-source-editor .cm-content {
+  padding: 8px 10px;
+}
+#md-editor-source-dialog .md-editor-source-editor .cm-editor.cm-focused {
+  outline: 2px solid #2563eb;
+  outline-offset: -1px;
+}

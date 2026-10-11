@@ -1,32 +1,45 @@
-/* 脚注定义块卡片：label 徽标 + 定义文本（frontmatter.css 同款 shell 结构） */
-.md-editor-raw-footnote-preview {
-  display: flex;
-  gap: 0.5em;
-  align-items: baseline;
-  padding: 0.4em 0.75em;
+/* 脚注定义块：正文内不渲染可见内容（查看/编辑走引用处的 tooltip），
+   仅保留 display:none 的 DOM 占位（raw_block 是 atom 必须持有 DOM） */
+.md-editor-raw-footnote-def {
+  display: none;
 }
 
-.md-editor-footnote-label {
-  flex: none;
-  font-size: 0.8em;
-  line-height: 1.2;
-  padding: 0.1em 0.6em;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--gray-bg);
-  color: var(--link-color);
-  white-space: nowrap;
-}
-
-.md-editor-footnote-text {
-  white-space: pre-wrap;
-  color: #666;
-}
-
-/* 行内脚注引用：sup 上标（formula.css 的 raw-inline-preview 同款思路） */
+/* 行内脚注引用：sup 上标（formula.css 的 raw-inline-preview 同款思路）。
+   position:relative 是选中弹出 tooltip（.md-editor-footnote-tooltip）的定位锚 */
 .md-editor-raw-inline-footnote {
+  position: relative;
   padding: 0 0.1em;
   color: var(--link-color);
   font-weight: 600;
-  cursor: default;
+  cursor: pointer;
+}
+
+/* 引用处选中弹出的 tooltip：通用浮层形态（定位/箭头/边框/阴影）见全局
+   styles/tooltip.css 的 .md-editor-tooltip，这里只定内容形态——宽度与
+   内嵌 PM 子编辑器（.ProseMirror）编辑定义文本 */
+.md-editor-footnote-tooltip {
+  min-width: 240px;
+  max-width: 360px;
+}
+
+.md-editor-footnote-tooltip-empty {
+  white-space: nowrap;
+  padding: 8px 10px;
+  color: #999;
+}
+
+/* tooltip 内的 PM 子编辑器：复用文档默认版式，去掉外层编辑器的焦点轮廓 */
+.md-editor-footnote-tooltip .ProseMirror {
+  min-height: 4em;
+  /*padding: 4px 6px;*/
+  /*border: 1px solid var(--border-color);*/
+  border-radius: 4px;
+  /*background: var(--gray-bg);*/
+  outline: none;
+  white-space: pre-wrap;
+  cursor: text;
+}
+
+.md-editor-footnote-tooltip .ProseMirror p {
+  margin-bottom: 0.5em;
 }

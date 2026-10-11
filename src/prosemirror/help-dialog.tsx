@@ -2,6 +2,7 @@
 // 复用 runManagedDialog 的 Escape / 遮罩点击 / 关闭按钮处理，footer 只保留一个"关闭"按钮。
 import { runManagedDialog } from "./dialog"
 import { h, Fragment, JSXChild } from "../jsx"
+import "./help-dialog.css"
 
 interface HelpSection {
   title: string;

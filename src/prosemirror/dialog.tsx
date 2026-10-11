@@ -2,7 +2,6 @@ import { DialogAction, DialogResult } from "../types"
 import { SvgIcon } from "../icons"
 import { isString, isFunction } from "../utils"
 import { h } from "../jsx"
-import "./dialog.css"
 
 export interface DialogCustomButton {
   selector: string;

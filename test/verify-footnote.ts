@@ -2,10 +2,10 @@
 // 1. kinds 分类与解析：getRawBlockKind 识别脚注定义块（不干扰 math/frontmatter/svg），
 //    parseFootnoteRawBlockSource 剥掉续行一层缩进，parseFootnoteRawInlineSource 只认 [^label]。
 // 2. markdown 往返：行内 `[^1]` 解析为 raw_inline、定义块为 raw_block，序列化还原原文。
-// 3. isPreviewBlock 覆盖脚注定义块（整删保护 / op menu 语义随之生效）。
-// 4. NodeView DOM：定义块卡片（label 徽标 + 定义文本 + body class）、行内 sup 上标、
-//    update 跨 kind 返回 false。
-// 5. op menu 删除：脚注定义块命中预览块菜单，mousedown 整块删除。
+// 3. isPreviewBlock 覆盖脚注定义块（相邻块边界 Backspace 整删保护）。
+// 4. NodeView DOM：定义块为 display:none 隐藏占位（无可见内容，查看/编辑走
+//    引用 tooltip）、行内 sup 上标、update 跨 kind 返回 false。
+// 5. op menu 不再挂接：隐藏占位 hover / 选中都不可达，注册表不匹配脚注定义块。
 import { EditorState, Transaction } from "prosemirror-state"
 import { Node as PMNode } from "prosemirror-model"
 import { buildSchema } from "../src/prosemirror/schema"
@@ -93,6 +93,16 @@ class FakeElement {
     return out
   }
 
+  // contenteditable div 提交逻辑读 innerText（真实浏览器里 Enter 产生 div/br）；
+  // stub 环境无渲染差异，直接等价 textContent
+  get innerText(): string {
+    return this.textContent
+  }
+
+  set innerText(value: string) {
+    this.textContent = value
+  }
+
   set innerHTML(value: string) {
     this.attrs["innerHTML"] = String(value)
   }
@@ -107,12 +117,27 @@ class FakeElement {
     return child
   }
 
+  get parentNode(): FakeElement | null {
+    return this.parent
+  }
+
+  removeChild(child: FakeElement) {
+    var index = this.children.indexOf(child)
+    if (index !== -1) {
+      this.children.splice(index, 1)
+    }
+    child.parent = null
+    return child
+  }
+
   addEventListener(type: string, fn: (event: any) => void) {
     if (!this.listeners[type]) {
       this.listeners[type] = []
     }
     this.listeners[type].push(fn)
   }
+
+  focus() {}
 
   contains(node: FakeElement): boolean {
     var current: FakeElement | null = node
@@ -239,22 +264,18 @@ if (blockFound) {
   var nv = createFootnoteRawBlockNodeView(blockFound)
   assert(nv !== null, "footnote block NodeView created")
   if (nv) {
+    // 定义块在正文里是 display:none 的隐藏占位：无 shell、无子元素、不可编辑，
+    // 查看与编辑只发生在引用处的 tooltip
     var dom = nv.dom as unknown as FakeElement
-    assert(dom.tagName === "div" && dom.classSet.has("md-editor-raw-preview"), "footnote card uses raw preview shell")
-    var body = dom.children[0]
-    assert(body !== undefined && body.classSet.has("md-editor-raw-footnote-preview"), "footnote body class applied")
-    assert(body !== undefined && body.children.length === 2, "footnote card has label + text children")
-    var labelEl = body ? body.children[0] : null
-    var textEl = body ? body.children[1] : null
-    assert(labelEl !== null && labelEl.tagName === "span" && labelEl.classSet.has("md-editor-footnote-label") && textOf(labelEl) === "1", "label badge shows footnote label")
-    assert(textEl !== null && textEl.tagName === "div" && textOf(textEl) === "first line\nsecond line", "definition text de-indented and joined")
+    assert(dom.tagName === "div" && dom.classSet.has("md-editor-raw-footnote-def"), "footnote block renders hidden placeholder")
+    assert(dom.attrs["contenteditable"] === "false", "hidden placeholder is not editable")
+    assert(dom.children.length === 0, "hidden placeholder renders no content")
 
-    // 同 kind 文本变化：原地重渲染
+    // 同 kind 文本变化：继续复用隐藏占位
     var nextText = "[^2]: changed"
     var nextNode = schema.nodes.raw_block.createAndFill({}, schema.text(nextText))
     assert(nextNode !== null && nv.update(nextNode) === true, "same-kind update reuses NodeView")
-    var reTextEl = body ? body.children[1] : null
-    assert(reTextEl !== null && reTextEl !== textEl && textOf(reTextEl) === "changed", "same-kind update re-renders text")
+    assert((nv.dom as unknown as FakeElement) === dom && dom.children.length === 0, "same-kind update keeps placeholder empty")
 
     // 跨 kind 变化：返回 false 交回分派器
     var mathNode = schema.nodes.raw_block.createAndFill({}, schema.text("$$\nx\n$$"))
@@ -285,76 +306,121 @@ if (inlineFound) {
   }
 }
 
-// ---------- 5. op menu 删除 ----------
+// ---------- 5. op menu 不再挂接脚注定义块 ----------
 
-function runPreviewMenuDelete(markdown: string): string {
-  var menuDoc = parseMarkdown(schema, parser, markdown)
-  if (!menuDoc) {
-    throw new Error("parse failed for: " + markdown)
-  }
-  var state = EditorState.create({ schema: schema, doc: menuDoc })
-  var view: any = {
-    state: state,
-    dispatch: function (tr: Transaction) {
-      view.state = view.state.apply(tr)
-    },
-    focus: function () {}
-  }
-  var target: { node: PMNode, pos: number } | null = null
-  menuDoc.forEach(function (child: PMNode, offset: number) {
-    if (!target && previewBlockOpMenuRegistration.matches(child, menuDoc)) {
-      target = { node: child, pos: offset }
-    }
-  })
-  if (!target) {
-    throw new Error("no preview block matched in: " + markdown)
-  }
-  var matched = target as { node: PMNode, pos: number }
-  assert(getRawBlockKind(matched.node.textContent) === "footnote", "op menu targets the footnote block")
-  var menuDom = previewBlockOpMenuRegistration.buildMenu({
-    doc: menuDoc,
-    node: matched.node,
-    pos: matched.pos,
-    view: view
-  }) as unknown as FakeElement
-  var toggle: FakeElement | null = null
-  var button: FakeElement | null = null
-  ;(function walk(el: FakeElement) {
-    for (var i = 0; i < el.children.length; i += 1) {
-      var child = el.children[i]
-      if (child.nodeType === 1) {
-        if (!toggle && child.tagName === "button" && child.attrs["title"] === "脚注操作") {
-          toggle = child
-        }
-        if (!button && child.tagName === "button" && child.classSet.has("md-editor-block-op-menu-item") && child.attrs["title"] === "删除") {
-          button = child
-        }
-        walk(child)
-      }
-    }
-  })(menuDom)
-  // dropdown 形态：主按钮 title 为「脚注操作」，删除在面板行（click 执行）
-  assert(toggle !== null, "footnote dropdown toggle uses footnote title")
-  if (!button) {
-    throw new Error("delete button not found")
-  }
-  var deleteButton = button as FakeElement
-  var listeners = deleteButton.listeners["click"] || []
-  var event = {
-    button: 0,
-    detail: 1,
-    preventDefault: function () {},
-    stopPropagation: function () {}
-  }
+// 定义块是 display:none 的隐藏占位：hover / NodeSelection 都不可达，挂菜单只会
+// 凭空弹出浮层——注册表必须不匹配脚注定义块。删除定义块走相邻文本块边界
+// Backspace 整删（deleteAdjacentPreviewBlock，链路见 verify-raw-block-del.ts）。
+assert(
+  blockFound !== null && !previewBlockOpMenuRegistration.matches(blockFound, doc),
+  "hidden footnote block no longer matches op menu registration"
+)
+var mathPreviewBlock = schema.nodes.raw_block.createAndFill({}, schema.text("$$\nx\n$$"))
+assert(
+  mathPreviewBlock !== null && previewBlockOpMenuRegistration.matches(mathPreviewBlock, doc),
+  "other preview blocks still match op menu"
+)
+
+// ---------- 6. 引用处点击 tooltip 预览 + 编辑 ----------
+
+function fireListeners(el: FakeElement, type: string, event: Record<string, unknown>) {
+  var listeners = el.listeners[type] || []
   for (var i = 0; i < listeners.length; i += 1) {
     listeners[i](event)
   }
-  return serializer.serialize(view.state.doc)
 }
 
-var afterDelete = runPreviewMenuDelete(md)
-assert(afterDelete.indexOf("[^1]:") === -1, "op menu deletes footnote definition block")
-assert(afterDelete.indexOf("reference[^1].") !== -1, "inline reference and text kept after delete")
+function findByTag(root: FakeElement, tag: string): FakeElement | null {
+  for (var i = 0; i < root.children.length; i += 1) {
+    var child = root.children[i]
+    if (child.nodeType === 1) {
+      if (child.tagName === tag) {
+        return child
+      }
+      var nested = findByTag(child, tag)
+      if (nested) {
+        return nested
+      }
+    }
+  }
+  return null
+}
+
+// 6a. 有定义：selectNode 打开的子编辑器（new EditorView）依赖真实 DOM，
+// 在本测试的 FakeElement 环境下无法运行——该路径由 test/tmp-tooltip-check.html
+// 在 headless Chrome 中验证（点击 → NodeSelection → 子编辑器预填 → 提交）。
+
+// 6b. 无定义（悬空引用）：selectNode 弹只读提示，不创建子编辑器；deselectNode 收起
+var danglingMd = "Dangling ref[^missing] here.\n\nplain block"
+var danglingDoc = parseMarkdown(schema, parser, danglingMd)
+if (!danglingDoc) {
+  throw new Error("parse failed for dangling case")
+}
+var danglingInline = findFootnoteNode(danglingDoc, function (n: PMNode) {
+  return n.type.name === "raw_inline" && n.textContent === "[^missing]"
+})
+assert(danglingInline !== null, "dangling case: inline reference found")
+if (danglingInline) {
+  var danglingState = EditorState.create({ schema: schema, doc: danglingDoc })
+  var danglingView: any = {
+    state: danglingState,
+    dispatch: function (tr: Transaction) {
+      danglingView.state = danglingView.state.apply(tr)
+    },
+    focus: function () {}
+  }
+  var danglingNv = createFootnoteRefRawInlineNodeView(danglingInline, danglingView)
+  var danglingDom = danglingNv!.dom as unknown as FakeElement
+  danglingNv!.selectNode()
+  var emptyTip = findByTag(danglingDom, "span")
+  assert(
+    emptyTip !== null && emptyTip.classSet.has("md-editor-footnote-tooltip-empty"),
+    "selectNode on dangling reference shows read-only empty tooltip"
+  )
+  assert(
+    emptyTip !== null && emptyTip.classSet.has("md-editor-tooltip"),
+    "tooltip carries generic .md-editor-tooltip base class (reusable shell + arrow)"
+  )
+  assert(
+    danglingDom.classSet.has("ProseMirror-selectednode"),
+    "selectNode marks sup as selected node"
+  )
+  assert(danglingDom.children.length === 2, "sup keeps label text while tooltip open")
+  assert(
+    danglingNv!.stopEvent({ target: emptyTip } as unknown as Event) === false,
+    "stopEvent passes through without inner editor (official semantics)"
+  )
+  danglingNv!.deselectNode()
+  assert(danglingDom.children.length === 1, "deselectNode closes tooltip")
+  assert(
+    !danglingDom.classSet.has("ProseMirror-selectednode"),
+    "deselectNode clears selected-node class"
+  )
+
+  // 6c. label 变化的 update：tooltip 打开时静默丢弃并收起
+  var relabelNv = createFootnoteRefRawInlineNodeView(danglingInline, danglingView)
+  var relabelDom = relabelNv!.dom as unknown as FakeElement
+  relabelNv!.selectNode()
+  assert(relabelDom.children.length === 2, "relabel case: tooltip opened")
+  var relabelSource = "[^renamed]"
+  var relabelInline = findFootnoteNode(parseMarkdown(schema, parser, "x[^renamed]")!, function (n: PMNode) {
+    return n.type.name === "raw_inline" && n.textContent === relabelSource
+  })
+  assert(relabelInline !== null, "relabel case: new inline node found")
+  if (relabelInline) {
+    assert(relabelNv!.update(relabelInline) === true, "label change accepted by update")
+    assert(findByTag(relabelDom, "span") === null, "label change closes tooltip without commit")
+    assert(textOf(relabelDom) === "renamed", "sup label refreshed after relabel")
+  }
+
+  // 6d. destroy 收起 tooltip
+  var destroyNv = createFootnoteRefRawInlineNodeView(danglingInline, danglingView)
+  var destroyDom = destroyNv!.dom as unknown as FakeElement
+  destroyNv!.selectNode()
+  assert(destroyDom.children.length === 2, "destroy case: tooltip opened")
+  destroyNv!.destroy()
+  assert(destroyDom.children.length === 1, "destroy closes tooltip")
+}
 
 if (failures > 0) {
   console.log("FAILED: " + failures)

@@ -1,6 +1,8 @@
 // 预览块节点操作菜单（NodeOpMenu）：注册到 block-menu 核心，
 // 预览块（$$ 公式 / iframe / frontmatter / svg 的 raw_block，mermaid code_block）
 // hover 时在块左侧显示：复制源码 + 编辑源码 + 删除节点（dropdown 形态，构建器见 block-op-menu.tsx）。
+// 脚注定义块除外：它在正文里是 display:none 的隐藏占位，hover / 选中都不可达，
+// 查看与编辑只走引用处的 tooltip，删除走相邻块边界 Backspace 整删。
 // 预览块 stopEvent 放行原生事件、iframe 内鼠标事件不达编辑器，
 // 鼠标侧没有统一删除入口——菜单按钮与键盘 Backspace 整删走同一删除链路。
 // 复制源码只读 textContent（与 markdown 序列化同源），不引入任何文档变更。
@@ -23,8 +25,7 @@ import "./node-op-menu.css"
 var toggleByKind: Record<string, { toggleIcon: string, toggleTitle: string }> = {
   math: { toggleIcon: SvgIcon.sigma, toggleTitle: "公式操作" },
   svg: { toggleIcon: SvgIcon.vectorSquare, toggleTitle: "SVG 操作" },
-  mermaid: { toggleIcon: SvgIcon.squareChartGantt, toggleTitle: "图表操作" },
-  footnote: { toggleIcon: SvgIcon.cornerDownRight, toggleTitle: "脚注操作" }
+  mermaid: { toggleIcon: SvgIcon.squareChartGantt, toggleTitle: "图表操作" }
 }
 
 function deleteNodeAt(ctx: BlockMenuContext) {
@@ -56,6 +57,11 @@ export function createPreviewBlockOpMenuRegistration(opts?: MDWriterInitOptions)
   // prosemirror-view 丢弃），渲染为块 DOM 的前置兄弟
   anchorInside: false,
   matches: function (node: PMNode, parent: PMNode) {
+    // 脚注定义块是 display:none 的隐藏占位：hover / NodeSelection 都不可见，
+    // 挂菜单只会凭空弹出浮层，直接不匹配（编辑走 tooltip、删除走边界 Backspace）
+    if (node.type.name === "raw_block" && getRawBlockKind(node.textContent) === "footnote") {
+      return false
+    }
     return isPreviewBlock(node)
   },
   buildMenu: function (ctx) {
