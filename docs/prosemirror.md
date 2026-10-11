@@ -213,7 +213,7 @@ graph TD
 - 不可变；有 `from/to`，多数还有 `anchor`（不动端）+ `head`（移动端）
 - `TextSelection`：两端点必须在**行内位置**
 - `NodeSelection`：选整个节点，范围是节点前到节点后
-- 第三方可注册新 selection 类型（如 prosemirror-gapcursor 的 `GapCursor`——本仓库 `raw_block` 的 `createGapCursor: true` 给预览块前后提供可达光标）
+- 第三方可注册新 selection 类型（如 prosemirror-gapcursor 的 `GapCursor`，让块级节点之间也能放置光标）
 
 ### 4.3 Transaction
 
@@ -328,7 +328,7 @@ graph TD
 - 插件状态不可变；读取用 `plugin.getState(state)`
 - 用 `tr.setMeta(插件自身)` 做插件间通信与自我标记（如 history 的 undo 事务）
 
-典型插件谱系：keymap（键→命令）、history（观察事务存逆操作）、inputrules、gapcursor，以及本仓库全部菜单/高亮/grip 插件。
+典型插件谱系：keymap（键→命令）、history（观察事务存逆操作）、inputrules，以及本仓库全部菜单/高亮/grip 插件。
 
 ## 7. Commands 与键映射
 
@@ -378,7 +378,6 @@ graph TD
 |---|---|
 | `src/prosemirror/schema.ts:88` 以 markdown schema 派生新 schema | OrderedMap 派生扩展 |
 | `table` 节点 `isolating: true`（schema.ts:8） | 阻断跨块编辑操作 |
-| `raw_block` 的 `createGapCursor: true` | 自定义 selection 类型（GapCursor）补可达光标 |
 | grip 直写 `td/th` + `ignoreMutation` | NodeView 对 contentDOM 外 DOM 的自管权 |
 | grip `stopEvent` 拦截 handle 事件 | NodeView 事件边界 |
 | `update` 回调 rAF 重建 | update 时 contentDOM 仍是旧内容 |

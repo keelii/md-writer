@@ -186,10 +186,6 @@ path.ar{fill:none;stroke:#556;stroke-width:1.6;marker-end:url(#ah)}
 <text class="bx" x="804" y="1118"># → 标题 · 1. → 有序列表 · * → 无序列表 · > → 引用</text>
 <text class="bx" x="804" y="1136">mark 末尾连敲两空格 → 跳出 mark</text>
 <text class="bx" x="804" y="1154">表格末格双空格 → 跳出表格</text>
-<rect class="ext" x="1170" y="1074" width="366" height="98" rx="6"/>
-<text class="bt" x="1182" y="1096">gapCursor() — prosemirror-gapcursor</text>
-<text class="bx" x="1182" y="1118">块级节点之间也能放置光标</text>
-<text class="bx" x="1182" y="1136">块首/块尾的点击定位不失效</text>
 <rect class="ext" x="36" y="1180" width="366" height="98" rx="6"/>
 <text class="bt" x="48" y="1202">history() — prosemirror-history</text>
 <text class="bx" x="48" y="1224">undo / redo 的事务分组</text>
@@ -333,7 +329,7 @@ path.ar{fill:none;stroke:#556;stroke-width:1.6;marker-end:url(#ah)}
 <text class="sm" x="312" y="2074">其他第三方</text>
 <rect class="lazy" x="420" y="2062" width="16" height="16" rx="3"/>
 <text class="sm" x="442" y="2074">懒加载静态资源</text>
-<text class="bx" x="36" y="2094">运行时依赖：prosemirror-model · state · view · commands · keymap · inputrules · history · gapcursor · schema-list · markdown ｜ markdown-it ｜ @codemirror/state·view·commands·language·lang-markdown ｜ highlight.js + lowlight ｜ mermaid / katex / svg-pan-zoom（懒加载）</text>
+<text class="bx" x="36" y="2094">运行时依赖：prosemirror-model · state · view · commands · keymap · inputrules · history · schema-list · markdown ｜ markdown-it ｜ @codemirror/state·view·commands·language·lang-markdown ｜ highlight.js + lowlight ｜ mermaid / katex / svg-pan-zoom（懒加载）</text>
 </svg>
 
 

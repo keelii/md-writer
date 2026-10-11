@@ -102,14 +102,7 @@ export function buildSchema(): Schema {
     code: true,
     defining: true,
     atom: true,
-    // 预览类 raw_block（$$ 公式 / iframe / frontmatter）的 NodeView 为
-    // contenteditable=false 且 stopEvent 放行原生事件，点击后浏览器 caret
-    // 跨浏览器落点不可靠——光标到不了块边界，整块删除命令够不着。
-    // createGapCursor 让 gapcursor 插件在块前后产生可视补位光标，
-    // 补齐“鼠标点击 → 光标到边界 → Backspace 整删”的链路。
-    // 副作用：kind 为空的可编辑 raw_block（HTML 源码块）周围同样出现
-    // gap cursor，属可接受的降级（键盘方向键仍可进入内容）。
-    createGapCursor: true,
+
     parseDOM: [{tag: "pre[data-md-editor-raw-block=\"true\"]"}],
     toDOM: function (): DOMOutputSpec {
       return ["pre", {"data-md-editor-raw-block": "true", class: "md-editor-raw-block"}, 0]

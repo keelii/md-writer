@@ -6,7 +6,6 @@ import { baseKeymap, chainCommands, createParagraphNear, liftEmptyBlock, newline
 import { history, redo, undo } from "prosemirror-history"
 import { InputRule, inputRules, wrappingInputRule } from "prosemirror-inputrules"
 import { keymap } from "prosemirror-keymap"
-import { gapCursor } from "prosemirror-gapcursor"
 import { liftListItem, sinkListItem, splitListItem } from "prosemirror-schema-list"
 import { EditorCommand, EditorDispatch, MDWriterInitOptions } from "../types"
 import { parseMarkdown } from "./markdown"
@@ -585,7 +584,6 @@ export function buildPlugins(schema: Schema, options?: MDWriterInitOptions): Plu
     createCodeHighlightPlugin(),
     createImageRhythmPlugin(),
     inputRuleList.length ? inputRules({rules: inputRuleList}) : null,
-    gapCursor(),
     history(),
     keymap(keyBindings),
     keymap(baseKeymap)

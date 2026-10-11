@@ -445,7 +445,7 @@ export function guardTableCellDeletion(state: EditorState, dispatch?: EditorDisp
   var $from = selection.$from
   var $to = selection.$to
   var fromCellDepth = findCellDepth($from)
-  // 起点不在 cell 内：与 cell 网格无关，放行（gapcursor / 表外光标等）
+  // 起点不在 cell 内：与 cell 网格无关，放行（表外光标等）
   if (fromCellDepth < 0) {
     return false
   }
