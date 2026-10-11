@@ -39,18 +39,20 @@ function createTableRowNode(schema: Schema, colCount: number, isHeader: boolean)
   return rowType.create(null, cells)
 }
 
-export function insertDefaultTableNode(view: EditorView, schema: Schema) {
+// 默认表格节点：3 列 × 表头一行 + 正文一行（table_head/table_body 缺失时
+// 直接平铺两行）。段落菜单「表格」转换项与选区插入命令共用。
+export function createDefaultTableNode(schema: Schema): PMNode | null {
   var tableType = schema.nodes.table
   var tableHeadType = schema.nodes.table_head
   var tableBodyType = schema.nodes.table_body
   if (!tableType) {
-    return false
+    return null
   }
 
   var headerRow = createTableRowNode(schema, 3, true)
   var bodyRow = createTableRowNode(schema, 3, false)
   if (!headerRow || !bodyRow) {
-    return false
+    return null
   }
 
   var tableChildren: PMNode[] = []
@@ -62,10 +64,16 @@ export function insertDefaultTableNode(view: EditorView, schema: Schema) {
     tableChildren.push(bodyRow)
   }
 
-  var tableNode
   try {
-    tableNode = tableType.create(null, tableChildren)
+    return tableType.create(null, tableChildren)
   } catch (error) {
+    return null
+  }
+}
+
+export function insertDefaultTableNode(view: EditorView, schema: Schema) {
+  var tableNode = createDefaultTableNode(schema)
+  if (!tableNode) {
     return false
   }
 
@@ -739,7 +747,7 @@ function setTableJSONSections(tableJSON: JSONNodeData, sections: TableSections) 
   tableJSON.content = nextContent
 }
 
-function getTableCellContentOffset(tableNode: PMNode, rowIndex: number, colIndex: number) {
+export function getTableCellContentOffset(tableNode: PMNode, rowIndex: number, colIndex: number) {
   var rows = getTableRowsFromNode(tableNode)
   if (rows.length < 1) {
     return 1

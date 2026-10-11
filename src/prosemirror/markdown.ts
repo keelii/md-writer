@@ -2,6 +2,7 @@ import {
   MarkdownParser,
   MarkdownSerializer,
   MarkdownSerializerState,
+  ParseSpec,
   defaultMarkdownParser,
   defaultMarkdownSerializer
 } from "prosemirror-markdown";
@@ -65,19 +66,7 @@ function tableAlignFromToken(token: MarkdownItToken): {align: string | null} {
   return {align: null}
 }
 
-export function buildMarkdownParser(schema: Schema): MarkdownParser {
-  var tableTokens = {
-    table: {block: "table"},
-    thead: {block: "table_head"},
-    tbody: {block: "table_body"},
-    tfoot: {block: "table_body"},
-    tr: {block: "table_row"},
-    th: {block: "table_header", getAttrs: tableAlignFromToken},
-    td: {block: "table_cell", getAttrs: tableAlignFromToken}
-  }
-  var tokens = Object.assign({}, defaultMarkdownParser.tokens, tableTokens, {
-    s: {mark: "strike"}
-  })
+function createMarkdownTokenizer(): MarkdownIt {
   var tokenizer = new MarkdownIt("default", {
     html: false,
     linkify: false,
@@ -96,16 +85,63 @@ export function buildMarkdownParser(schema: Schema): MarkdownParser {
     return defaultValidateLink.call(tokenizer, url)
   }
   registerTableCellBrRule(tokenizer as MarkdownItWithCoreRuler)
-  var parser = new MarkdownParser(schema, tokenizer, tokens)
+  return tokenizer
+}
+
+function buildMarkdownTokens(): Record<string, ParseSpec> {
+  var tableTokens = {
+    table: {block: "table"},
+    thead: {block: "table_head"},
+    tbody: {block: "table_body"},
+    tfoot: {block: "table_body"},
+    tr: {block: "table_row"},
+    th: {block: "table_header", getAttrs: tableAlignFromToken},
+    td: {block: "table_cell", getAttrs: tableAlignFromToken}
+  }
+  return Object.assign({}, defaultMarkdownParser.tokens, tableTokens, {
+    s: {mark: "strike"}
+  })
+}
+
+// softbreak（行尾反斜杠或普通换行）：schema 有 hard_break 时映射为节点，否则按文本处理
+function applySoftbreakHandler(parser: MarkdownParser): MarkdownParser {
   var parserWithTokenHandlers = parser as MarkdownParserWithTokenHandlers
   parserWithTokenHandlers.tokenHandlers.softbreak = function (state: MarkdownParserTokenState) {
-    if (schema.nodes.hard_break) {
-      state.addNode(schema.nodes.hard_break)
+    if (parser.schema.nodes.hard_break) {
+      state.addNode(parser.schema.nodes.hard_break)
       return
     }
     state.addText("\n")
   }
   return parser
+}
+
+export function buildMarkdownParser(schema: Schema): MarkdownParser {
+  return applySoftbreakHandler(
+    new MarkdownParser(schema, createMarkdownTokenizer(), buildMarkdownTokens())
+  )
+}
+
+// 受限 schema（如脚注子编辑器：只允许段落与行内 marks）的 parser：
+// token 规格里引用的 node/mark 不在 schema 中时直接跳过该规则——块级语法
+// （标题/列表/引用/图片等）的 token 因此找不到 handler，parse 时抛
+// RangeError，由调用方退回纯文本行；行内 mark（加粗/斜体/行内代码/链接…）
+// 的解析不受影响。tokenizer 与完整版一致。
+export function buildRestrictedMarkdownParser(schema: Schema): MarkdownParser {
+  var full = buildMarkdownTokens()
+  var tokens: Record<string, ParseSpec> = {}
+  for (var name in full) {
+    var spec = full[name]
+    if ((spec.block && !schema.nodes[spec.block]) ||
+        (spec.node && !schema.nodes[spec.node]) ||
+        (spec.mark && !schema.marks[spec.mark])) {
+      continue
+    }
+    tokens[name] = spec
+  }
+  return applySoftbreakHandler(
+    new MarkdownParser(schema, createMarkdownTokenizer(), tokens)
+  )
 }
 
 var TABLE_CELL_BR_PATTERN = /<br\s*\/?>/gi

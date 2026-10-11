@@ -6,18 +6,26 @@
 // 4. NodeView DOM：定义块为 display:none 隐藏占位（无可见内容，查看/编辑走
 //    引用 tooltip）、行内 sup 上标、update 跨 kind 返回 false。
 // 5. op menu 不再挂接：隐藏占位 hover / 选中都不可达，注册表不匹配脚注定义块。
-import { EditorState, Transaction } from "prosemirror-state"
+import { EditorState, TextSelection, Transaction } from "prosemirror-state"
 import { Node as PMNode } from "prosemirror-model"
 import { buildSchema } from "../src/prosemirror/schema"
-import { buildMarkdownParser, buildMarkdownSerializer, parseMarkdown } from "../src/prosemirror/markdown"
+import { buildMarkdownParser, buildMarkdownSerializer, buildRestrictedMarkdownParser, parseMarkdown } from "../src/prosemirror/markdown"
 import {
   getRawBlockKind,
   isPreviewBlock,
   parseFootnoteRawBlockSource,
   parseFootnoteRawInlineSource
 } from "../src/prosemirror/nodeviews/kinds"
-import { createFootnoteRawBlockNodeView, createFootnoteRefRawInlineNodeView } from "../src/prosemirror/nodeviews/widgets/footnote"
+import {
+  buildInnerFootnoteSchema,
+  buildInnerFootnotePlugins,
+  createFootnoteRawBlockNodeView,
+  createFootnoteRefRawInlineNodeView,
+  parseFootnoteLineParagraph,
+  serializeFootnoteLineParagraph
+} from "../src/prosemirror/nodeviews/widgets/footnote"
 import { previewBlockOpMenuRegistration } from "../src/prosemirror/nodeviews/node-op-menu"
+import { placeTooltip } from "../src/utils"
 
 class FakeElement {
   tagName: string
@@ -29,6 +37,11 @@ class FakeElement {
   listeners: Record<string, Array<(event: any) => void>>
   classSet: Set<string>
   classList: any
+  // getBoundingClientRect 度量结果（placeTooltip 摆位用），测试里手工设定
+  rect: { left: number, top: number, right: number, bottom: number, width: number, height: number }
+  // style.setProperty 记录表：摆位箭头坐标写入 --md-tooltip-arrow-x
+  styleProperties: Record<string, string>
+  style: any
 
   constructor(tagName: string, nodeType: number, text?: string) {
     this.tagName = tagName
@@ -39,7 +52,14 @@ class FakeElement {
     this.parent = null
     this.listeners = {}
     this.classSet = new Set()
+    this.rect = { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 }
+    this.styleProperties = {}
     var self = this
+    this.style = {
+      setProperty: function (name: string, value: string) {
+        self.styleProperties[name] = value
+      }
+    }
     this.classList = {
       add: function () {
         for (var i = 0; i < arguments.length; i += 1) {
@@ -139,6 +159,10 @@ class FakeElement {
 
   focus() {}
 
+  getBoundingClientRect() {
+    return this.rect
+  }
+
   contains(node: FakeElement): boolean {
     var current: FakeElement | null = node
     while (current) {
@@ -164,6 +188,12 @@ class FakeElement {
   },
   addEventListener: function () {},
   removeEventListener: function () {}
+}
+
+// placeTooltip（utils）读视口尺寸，stub 一个常规桌面视口
+;(globalThis as any).window = {
+  innerWidth: 1280,
+  innerHeight: 800
 }
 
 var failures = 0
@@ -421,6 +451,217 @@ if (danglingInline) {
   destroyNv!.destroy()
   assert(destroyDom.children.length === 1, "destroy closes tooltip")
 }
+
+// ---------- 7. 子编辑器受限 schema：只允许段落 + 行内 marks ----------
+
+var innerSchema = buildInnerFootnoteSchema(schema)
+var innerParser = buildRestrictedMarkdownParser(innerSchema)
+
+var innerNodeNames: string[] = []
+innerSchema.spec.nodes.forEach(function (name: string, _spec: unknown) {
+  innerNodeNames.push(name)
+})
+assert(
+  innerNodeNames.join(",") === "doc,paragraph,text",
+  "inner footnote schema allows only doc/paragraph/text (got: " + innerNodeNames.join(",") + ")"
+)
+
+function paragraphHasMark(paragraph: PMNode, markName: string): boolean {
+  var seen = false
+  paragraph.forEach(function (child: PMNode) {
+    for (var i = 0; i < child.marks.length; i += 1) {
+      if (child.marks[i].type.name === markName) {
+        seen = true
+      }
+    }
+  })
+  return seen
+}
+
+// 行内 marks 照常解析
+var boldLineNode = parseFootnoteLineParagraph(innerParser, innerSchema, "a **bold** b")
+assert(
+  boldLineNode.type.name === "paragraph" && paragraphHasMark(boldLineNode, "strong"),
+  "restricted parser still parses inline marks (strong)"
+)
+assert(boldLineNode.textContent === "a bold b", "inline mark text content preserved")
+var mdSerializer = buildMarkdownSerializer(schema)
+assert(
+  serializeFootnoteLineParagraph(mdSerializer, boldLineNode) === "a **bold** b",
+  "inline marks serialize back to markdown source"
+)
+
+// 块级 / 图片语法一律退回纯文本段落
+var blockSyntaxCases: Array<[string, string]> = [
+  ["# heading", "# heading"],
+  ["- list item", "- list item"],
+  ["> quote", "> quote"],
+  ["![alt](https://example.com/y.png)", "![alt](https://example.com/y.png)"]
+]
+for (var caseIndex = 0; caseIndex < blockSyntaxCases.length; caseIndex += 1) {
+  var syntaxCase = blockSyntaxCases[caseIndex]
+  var fallbackNode = parseFootnoteLineParagraph(innerParser, innerSchema, syntaxCase[0])
+  assert(
+    fallbackNode.type.name === "paragraph" &&
+      fallbackNode.textContent === syntaxCase[1] &&
+      fallbackNode.childCount === 1 &&
+      fallbackNode.child(0).marks.length === 0,
+    "block/image syntax falls back to plain text paragraph: " + syntaxCase[0]
+  )
+}
+
+// ---------- 7b. 子编辑器双空格跳出 mark（与正文同手势） ----------
+
+// tooltip 内的嵌套子编辑器走 buildInnerFootnotePlugins：行内 mark 末尾连输
+// 两个空格也应像主编辑器一样跳出。直接调用 inputRules 的 handleTextInput
+// 模拟输入（不依赖真实 DOM，见 verify-exit-mark.ts 同款手法）。
+var innerPluginList = buildInnerFootnotePlugins(innerSchema, {})
+var innerHandleTextInput: any = null
+for (var ip = 0; ip < innerPluginList.length; ip += 1) {
+  var innerProps = (innerPluginList[ip] as any).props
+  if (innerProps && typeof innerProps.handleTextInput === "function") {
+    innerHandleTextInput = innerProps.handleTextInput
+  }
+}
+assert(innerHandleTextInput !== null, "inner editor plugins include inputRules (exit-mark rule wired)")
+
+function typeInnerText(state: EditorState, text: string) {
+  var applied = state
+  var handled = innerHandleTextInput(
+    {
+      composing: false,
+      state: state,
+      dispatch: function (tr: any) {
+        applied = applied.apply(tr)
+      }
+    },
+    state.selection.from,
+    state.selection.to,
+    text
+  )
+  return { handled: handled, state: applied }
+}
+
+// 受限 schema 段落：文本 + marks，光标在末尾
+function buildInnerState(children: Array<[string, string[]]>) {
+  var innerNodes: PMNode[] = []
+  for (var bi = 0; bi < children.length; bi += 1) {
+    var innerPair = children[bi]
+    var innerMarks = innerPair[1].map(function (name: string) {
+      return innerSchema.marks[name].create()
+    })
+    innerNodes.push(innerSchema.text(innerPair[0], innerMarks))
+  }
+  var innerPara = innerSchema.nodes.paragraph.create(null, innerNodes)
+  var innerDoc = innerSchema.topNodeType.create(null, innerPara)
+  return EditorState.create({
+    doc: innerDoc,
+    selection: TextSelection.create(innerDoc, 1 + innerPara.content.size)
+  })
+}
+
+function summarizeInnerChildren(state: EditorState): string[] {
+  var out: string[] = []
+  state.doc.forEach(function (para) {
+    para.forEach(function (child) {
+      var names = child.marks.map(function (m) {
+        return m.type.name
+      })
+      out.push((child.text || child.type.name) + "[" + names.sort().join(",") + "]")
+    })
+  })
+  return out
+}
+
+if (innerHandleTextInput) {
+  var innerMarkNames = ["code", "strong", "em", "strike"]
+  for (var im = 0; im < innerMarkNames.length; im += 1) {
+    var innerMarkName = innerMarkNames[im]
+    // 第一个空格带 mark 写入
+    var innerBase = buildInnerState([["foo", [innerMarkName]]])
+    innerBase = innerBase.apply(innerBase.tr.insertText(" "))
+    // 第二个空格：规则消费手势，第一个空格去掉 mark 跳出
+    var innerResult = typeInnerText(innerBase, " ")
+    assert(innerResult.handled === true, "inner second space handled for " + innerMarkName)
+    assert(
+      summarizeInnerChildren(innerResult.state).join("|") === "foo[" + innerMarkName + "]| []",
+      "inner first space unmarked for " + innerMarkName + " (got: " + summarizeInnerChildren(innerResult.state).join("|") + ")"
+    )
+    // 跳出后继续输入不带 mark
+    var innerTyped = innerResult.state.apply(innerResult.state.tr.insertText("x"))
+    assert(
+      summarizeInnerChildren(innerTyped).join("|") === "foo[" + innerMarkName + "]| x[]",
+      "inner subsequent typing unmarked for " + innerMarkName + " (got: " + summarizeInnerChildren(innerTyped).join("|") + ")"
+    )
+  }
+
+  // 无 mark 普通文本双空格不触发（防误伤）
+  var innerPlain = buildInnerState([["foo", []]])
+  innerPlain = innerPlain.apply(innerPlain.tr.insertText(" "))
+  var innerPlainResult = typeInnerText(innerPlain, " ")
+  assert(innerPlainResult.handled === false, "inner plain double space not handled")
+
+  // 行尾 nbsp 变体（Chrome 行尾空格以 \u00a0 进入）同样触发
+  var innerNbsp = buildInnerState([["foo", ["strong"]]])
+  innerNbsp = innerNbsp.apply(innerNbsp.tr.insertText("\u00a0"))
+  var innerNbspResult = typeInnerText(innerNbsp, "\u00a0")
+  assert(innerNbspResult.handled === true, "inner tail-nbsp second space handled")
+}
+
+// ---------- 8. tooltip 摆位：屏幕边缘自适应（placeTooltip + 位置变体类） ----------
+
+type FakeRect = { left: number, top: number, right: number, bottom: number, width: number, height: number }
+
+function makePlacementPair(anchorRect: FakeRect): FakeElement {
+  var anchor = new FakeElement("sup", 1)
+  anchor.rect = anchorRect
+  var tooltip = new FakeElement("span", 1)
+  // 浮层尺寸固定（280x120）：FakeElement 不真渲染，位置类名不改 rect
+  tooltip.rect = { left: 405, top: 437, right: 685, bottom: 557, width: 280, height: 120 }
+  placeTooltip(anchor as unknown as HTMLElement, tooltip as unknown as HTMLElement)
+  return tooltip
+}
+
+// 屏幕中央（视口 1280x800）：保持默认下方居中，无任何变体类；
+// 箭头指向锚点中心（锚点中心 515 - 浮层左边 405 = 110px）
+var centerTip = makePlacementPair({ left: 500, top: 400, right: 530, bottom: 416, width: 30, height: 16 })
+assert(
+  !centerTip.classSet.has("md-editor-tooltip--above") &&
+    !centerTip.classSet.has("md-editor-tooltip--align-start") &&
+    !centerTip.classSet.has("md-editor-tooltip--align-end"),
+  "centered anchor keeps default below-center placement"
+)
+assert(
+  centerTip.styleProperties["--md-tooltip-arrow-x"] === "110px",
+  "arrow points at anchor center (px offset on tooltip)"
+)
+
+// 锚点贴近视口下边缘：下方放不下、上方放得下 → 翻转到上方
+var aboveTip = makePlacementPair({ left: 500, top: 690, right: 530, bottom: 706, width: 30, height: 16 })
+assert(
+  aboveTip.classSet.has("md-editor-tooltip--above") &&
+    !aboveTip.classSet.has("md-editor-tooltip--align-start") &&
+    !aboveTip.classSet.has("md-editor-tooltip--align-end"),
+  "anchor near viewport bottom flips tooltip above (--above)"
+)
+
+// 锚点贴近视口左边缘：居中溢出左边 → 贴齐锚点左缘
+var startTip = makePlacementPair({ left: 2, top: 400, right: 32, bottom: 416, width: 30, height: 16 })
+assert(
+  startTip.classSet.has("md-editor-tooltip--align-start") &&
+    !startTip.classSet.has("md-editor-tooltip--above") &&
+    !startTip.classSet.has("md-editor-tooltip--align-end"),
+  "anchor near viewport left edge aligns tooltip start (--align-start)"
+)
+
+// 锚点贴近视口右边缘：居中溢出右边 → 贴齐锚点右缘
+var endTip = makePlacementPair({ left: 1250, top: 400, right: 1280, bottom: 416, width: 30, height: 16 })
+assert(
+  endTip.classSet.has("md-editor-tooltip--align-end") &&
+    !endTip.classSet.has("md-editor-tooltip--above") &&
+    !endTip.classSet.has("md-editor-tooltip--align-start"),
+  "anchor near viewport right edge aligns tooltip end (--align-end)"
+)
 
 if (failures > 0) {
   console.log("FAILED: " + failures)

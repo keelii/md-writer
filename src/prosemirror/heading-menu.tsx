@@ -11,7 +11,13 @@ export function buildBlockTypeMenuDom(
   activeValue: number | null,
   onSelect: (next: number | null) => void,
   // 文档仅剩唯一顶层块时传 undefined 省略删除项（见 paragraph-menu）
-  onDelete?: () => void
+  onDelete?: () => void,
+  // 追加在类型项之后、删除项之前的块形态转换项（段落菜单的「引用/列表/表格」），
+  // 分组分隔线由首项自带 divider；标题菜单不传
+  extraItems?: BlockOpMenuItem[],
+  // 段落态（activeValue 为 null）主按钮图标：空段落传 feather（起笔意象），
+  // 非空段落传 pilcrow（正文段落符），缺省回退 feather
+  paragraphIcon?: string
 ): HTMLElement {
   var options: Array<{label: string, value: number | null}> = [
     {label: "", value: null},
@@ -33,11 +39,16 @@ export function buildBlockTypeMenuDom(
       run: function () { onSelect(option.value) }
     }
   })
+  if (extraItems) {
+    for (var ei = 0; ei < extraItems.length; ei += 1) {
+      items.push(extraItems[ei])
+    }
+  }
   if (onDelete) {
-    items.push({label: "删除", icon: SvgIcon.trash, divider: true, run: onDelete})
+    items.push({label: "删除", icon: SvgIcon.trash, showLabel: true, divider: true, run: onDelete})
   }
   return buildBlockOpMenuDom("md-editor-heading-menu", items, activeValue === null
-    ? {toggleIcon: SvgIcon.pilcrow, toggleTitle: "段落操作"}
+    ? {toggleIcon: paragraphIcon || SvgIcon.feather, toggleTitle: "段落操作"}
     : {toggleLabel: "H" + activeValue, toggleTitle: "标题操作"})
 }
 

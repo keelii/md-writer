@@ -27,6 +27,7 @@ export function createCodeBlockCopyNodeView(node: PMNode, ctx: NodeViewContext) 
       onClick={function (event: MouseEvent) {
         stopEvent(event)
         copyTextToClipboard(node.textContent).then(function () {
+          showCopySuccess()
           ctx.view.focus()
         }).catch(function (error) {
           console.warn("copy code block failed", error)
@@ -34,6 +35,21 @@ export function createCodeBlockCopyNodeView(node: PMNode, ctx: NodeViewContext) 
       }}
     />
   )
+  // 复制成功态：图标换成绿色对勾（CSS pop 动画），短暂展示后恢复剪贴板图标；
+  // 重复点击重置计时，destroy 时清掉定时器
+  var successTimer: ReturnType<typeof setTimeout> | null = null
+  function showCopySuccess() {
+    if (successTimer !== null) {
+      clearTimeout(successTimer)
+    }
+    button.classList.add("md-editor-code-block-copy-success")
+    button.innerHTML = SvgIcon.clipboardCheck
+    successTimer = setTimeout(function () {
+      successTimer = null
+      button.classList.remove("md-editor-code-block-copy-success")
+      button.innerHTML = SvgIcon.clipboard
+    }, 1600)
+  }
   var code = <code />
   var dom = (
     <div className="md-editor-code-block-wrap">
@@ -58,6 +74,19 @@ export function createCodeBlockCopyNodeView(node: PMNode, ctx: NodeViewContext) 
         return true
       }
       return false
+    },
+    // 复制成功态会改 button 的 innerHTML（对勾图标切换），这发生在 NodeView DOM
+    // 内部：不忽略的话 PM 的 DOMObserver 会把该 mutation 当成编辑器内容变化，
+    // 触发 NodeView 重建（成功态被初始态按钮替换、恢复 timer 被 destroy 清掉）。
+    // code 内的文本 mutation 不经过此分支，编辑照常。
+    ignoreMutation: function (mutation: MutationRecord) {
+      return button.contains(mutation.target)
+    },
+    destroy: function () {
+      if (successTimer !== null) {
+        clearTimeout(successTimer)
+        successTimer = null
+      }
     }
   }
 }

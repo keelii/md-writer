@@ -30,7 +30,7 @@
 
 /* tooltip 内的 PM 子编辑器：复用文档默认版式，去掉外层编辑器的焦点轮廓 */
 .md-editor-footnote-tooltip .ProseMirror {
-  min-height: 4em;
+  min-height: 1em;
   /*padding: 4px 6px;*/
   /*border: 1px solid var(--border-color);*/
   border-radius: 4px;

@@ -239,7 +239,7 @@ function createHeadingIDSyncPlugin(schema: Schema): Plugin | null {
 // 行内 mark 末尾连输两个空格：跳出该 mark。
 // 触发时机是输入第二个空格：第一个空格已带 mark 写入文档，第二个尚未插入。
 // handler 删除已插入的空格并清除待输入 mark，使光标与其后的输入落在 mark 边界之外。
-function createExitInlineMarkRule(schema: Schema): InputRule | null {
+export function createExitInlineMarkRule(schema: Schema): InputRule | null {
   if (!Object.keys(schema.marks).length) {
     return null
   }

@@ -4,18 +4,22 @@
 // 中定义块只留一个 display:none 的占位（raw_block 是 atom 且必须持有 DOM）。
 // markdown 保真：节点原文保留在文档中，源码模式可见，序列化原样往返。
 // 删除定义块：相邻文本块边界 Backspace 整删（deleteAdjacentPreviewBlock）。
-import { Node as PMNode, Schema } from "prosemirror-model"
-import { EditorState, TextSelection } from "prosemirror-state"
+import { Node as PMNode, MarkSpec, Schema } from "prosemirror-model"
+import { EditorState, Plugin, TextSelection } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
 import { history, undo, redo } from "prosemirror-history"
 import { keymap } from "prosemirror-keymap"
 import { baseKeymap, toggleMark } from "prosemirror-commands"
+import { inputRules } from "prosemirror-inputrules"
 import { MarkdownParser, MarkdownSerializer } from "prosemirror-markdown"
 import { h } from "../../../jsx"
 import { returnTrue } from "../types"
-import { buildMarkdownParser, buildMarkdownSerializer, serializeNodeMarkdown } from "../../markdown"
+import { EditorCommand } from "../../../types"
+import { placeTooltip } from "../../../utils"
+import { buildMarkdownParser, buildMarkdownSerializer, buildRestrictedMarkdownParser, serializeNodeMarkdown } from "../../markdown"
 import { getRawBlockKind, parseFootnoteRawBlockSource, parseFootnoteRawInlineSource } from "../kinds"
 import { createPreviewSourceReplaceCommand } from "../../commands"
+import { createExitInlineMarkRule } from "../../plugins"
 import "./footnote.css"
 
 // 定义块隐藏占位：DOM 必须存在（raw_block 是 atom，prosemirror-view 要求每个
@@ -58,10 +62,10 @@ export function createFootnoteRawBlockNodeView(node: PMNode) {
 // createPreviewSourceReplaceCommand 整块替换（undo 为外层一次原子历史）。
 // Esc 丢弃改动静默关闭；找不到定义时只读提示。
 // 单行定义文本 → 段落节点：markdown-it 行内语法解析为带 marks 的 inline 内容
-// （加粗 / 斜体 / 删除线 / 行内代码 / 链接 / 图片…），提交时按原语法序列化回去。
-// 空行或解析撞上块级语法（"- 项"、"# 标题"等会被解析成别的块）时退回纯文本段落，
+// （加粗 / 斜体 / 删除线 / 行内代码 / 链接…），提交时按原语法序列化回去。
+// 块级语法（"- 项"、"# 标题"等在受限 parser 下没有 handler）抛错退回纯文本段落，
 // 保证打开未编辑的往返保真。
-function parseFootnoteLineParagraph(parser: MarkdownParser, schema: Schema, line: string): PMNode {
+export function parseFootnoteLineParagraph(parser: MarkdownParser, schema: Schema, line: string): PMNode {
   if (line === "") {
     return schema.nodes.paragraph.create(null, undefined)
   }
@@ -79,9 +83,51 @@ function parseFootnoteLineParagraph(parser: MarkdownParser, schema: Schema, line
 
 // 段落节点 → 单行定义文本：走序列化器把 marks 还原为 **/* 等源码语法，
 // closeBlock 写入的收尾换行剥掉（一行一段，换行由 buildFootnoteDefinitionSource 补）。
-function serializeFootnoteLineParagraph(serializer: MarkdownSerializer, paragraph: PMNode): string {
+export function serializeFootnoteLineParagraph(serializer: MarkdownSerializer, paragraph: PMNode): string {
   var out = serializeNodeMarkdown(serializer, paragraph)
   return out.replace(/\n$/, "")
+}
+
+// 子编辑器受限 schema：doc 只装段落，行内只留 text + 全部行内 marks
+// （加粗/斜体/行内代码/链接/删除线…）。粘贴等任何途径都无法产生其它块级或
+// 行内节点——heading/list/image/hard_break 等在受限 schema 下没有 node
+// type，DOMParser 直接忽略标签只留文本，从 schema 层面挡住而非事后修正。
+// 同一主 schema 的受限实例只构建一次。
+var innerFootnoteSchemas: Array<{ source: Schema, restricted: Schema }> = []
+
+export function buildInnerFootnoteSchema(source: Schema): Schema {
+  for (var i = 0; i < innerFootnoteSchemas.length; i += 1) {
+    if (innerFootnoteSchemas[i].source === source) {
+      return innerFootnoteSchemas[i].restricted
+    }
+  }
+  var marks: Record<string, MarkSpec> = {}
+  for (var markName in source.marks) {
+    marks[markName] = source.marks[markName].spec
+  }
+  var restricted = new Schema({
+    nodes: {
+      doc: { content: "paragraph+" },
+      paragraph: source.nodes.paragraph.spec,
+      text: source.nodes.text.spec
+    },
+    marks: marks
+  })
+  innerFootnoteSchemas.push({ source: source, restricted: restricted })
+  return restricted
+}
+
+// 子编辑器插件组：撤销历史在前，脚注专用快捷键（Esc 丢弃 / Cmd+Enter 提交 /
+// Mod-b / Mod-i 切换），baseKeymap 兜底 Enter 分段等；行内 mark 末尾连输两个
+// 空格的跳出规则（createExitInlineMarkRule）与正文主编辑器同一手势语义——
+// tooltip 内的编辑体验与正文保持一致。
+export function buildInnerFootnotePlugins(schema: Schema, bindings: Record<string, EditorCommand>): Array<Plugin> {
+  var plugins = [history(), keymap(bindings), keymap(baseKeymap)]
+  var exitInlineMarkRule = createExitInlineMarkRule(schema)
+  if (exitInlineMarkRule) {
+    plugins.push(inputRules({ rules: [exitInlineMarkRule] }))
+  }
+  return plugins
 }
 
 export function createFootnoteRefRawInlineNodeView(node: PMNode, view?: EditorView, getPos?: () => number) {
@@ -200,16 +246,19 @@ export function createFootnoteRefRawInlineNodeView(node: PMNode, view?: EditorVi
         </span>
       )
       dom.appendChild(tooltip)
+      placeTooltip(dom, tooltip)
       return
     }
     var parsedDef = parseFootnoteRawBlockSource(def.source)
     var lines = parsedDef ? parsedDef.lines : [""]
     tooltip = <span className="md-editor-tooltip md-editor-footnote-tooltip" />
     dom.appendChild(tooltip)
-    // 子编辑器：每行一个段落，行内 markdown 语法解析为带 marks 的内容
-    // （加粗/斜体等基本编辑能力；见 parseFootnoteLineParagraph）
-    var schema = view.state.schema
-    var parser = buildMarkdownParser(schema)
+    // 子编辑器：每行一个段落，行内 markdown 语法解析为带 marks 的内容。
+    // schema 受限（buildInnerFootnoteSchema：只允许段落与行内 marks），
+    // 块级/图片等语法解析不了，粘贴也产生不了其它块级节点
+    var sourceSchema = view.state.schema
+    var schema = buildInnerFootnoteSchema(sourceSchema)
+    var parser = buildRestrictedMarkdownParser(schema)
     var paragraphs: PMNode[] = []
     for (var i = 0; i < lines.length; i += 1) {
       paragraphs.push(parseFootnoteLineParagraph(parser, schema, lines[i]))
@@ -219,7 +268,7 @@ export function createFootnoteRefRawInlineNodeView(node: PMNode, view?: EditorVi
     initialText = serializeInnerDocText(innerDoc)
     // 快捷键：撤销/重做、Esc 丢弃、Cmd+Enter 提交在前，baseKeymap 兜底
     // Enter 分段 / Backspace 合并等；Mod-b / Mod-i 切换加粗斜体
-    var innerBindings: Record<string, Command> = {
+    var innerBindings: Record<string, EditorCommand> = {
       "Mod-z": function () {
         if (innerView) {
           undo(innerView.state, innerView.dispatch)
@@ -262,7 +311,7 @@ export function createFootnoteRefRawInlineNodeView(node: PMNode, view?: EditorVi
     innerView = new EditorView(tooltip, {
       state: EditorState.create({
         doc: innerDoc,
-        plugins: [history(), keymap(innerBindings), keymap(baseKeymap)]
+        plugins: buildInnerFootnotePlugins(schema, innerBindings)
       }),
       dispatchTransaction: function (tr) {
         if (!innerView) {
@@ -281,6 +330,9 @@ export function createFootnoteRefRawInlineNodeView(node: PMNode, view?: EditorVi
         }
       }
     })
+    // 位置变体：锚点贴近屏幕边缘时翻到上方 / 贴齐左右缘（须在子编辑器内容
+    // 就绪、浮层尺寸可测量之后）
+    placeTooltip(dom, tooltip)
     innerView.focus()
   }
 

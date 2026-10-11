@@ -148,6 +148,57 @@ export function toggleClass(el: Element, className: string, force?: boolean) {
   el.classList.toggle(className, force)
 }
 
+// tooltip 摆位参数：与视口边缘的最小留白 / 箭头距 tooltip 左右边缘的最小间距
+// （避免箭头压到圆角）/ 锚点与浮层的间距（须与 tooltip.css 的 calc(100% + 11px) 一致）
+var TOOLTIP_VIEWPORT_MARGIN = 8
+var TOOLTIP_ARROW_EDGE = 14
+var TOOLTIP_ANCHOR_GAP = 11
+
+// 通用 tooltip 摆位（配合 styles/tooltip.css 的位置变体类）：
+// 默认挂在锚点下方居中；下方溢出视口且上方放得下时翻到上方（--above），
+// 居中溢出视口左/右边时贴齐锚点左/右缘（--align-start/--end），箭头通过
+// --md-tooltip-arrow-x 始终指向锚点中心。调用时机：tooltip 已挂载到锚点下
+// 且内容已就绪（尺寸可测量）——位置类名会改变浮层位置，箭头坐标在类名
+// 应用后重测换算。
+export function placeTooltip(anchor: HTMLElement, tooltip: HTMLElement) {
+  var viewportWidth = window.innerWidth
+  var viewportHeight = window.innerHeight
+  var anchorRect = anchor.getBoundingClientRect()
+  var tipRect = tooltip.getBoundingClientRect()
+  // 垂直：默认下方，放不下且上方更空时翻转
+  var fitsBelow = anchorRect.bottom + TOOLTIP_ANCHOR_GAP + tipRect.height <= viewportHeight - TOOLTIP_VIEWPORT_MARGIN
+  var fitsAbove = anchorRect.top - TOOLTIP_ANCHOR_GAP - tipRect.height >= TOOLTIP_VIEWPORT_MARGIN
+  if (!fitsBelow && fitsAbove) {
+    addClass(tooltip, "md-editor-tooltip--above")
+  } else {
+    removeClass(tooltip, "md-editor-tooltip--above")
+  }
+  // 水平：居中位置溢出左/右视口边时贴齐锚点对应边缘（两个方向都溢出时优先贴左）
+  var centeredLeft = anchorRect.left + anchorRect.width / 2 - tipRect.width / 2
+  var overflowLeft = centeredLeft < TOOLTIP_VIEWPORT_MARGIN
+  var overflowRight = centeredLeft + tipRect.width > viewportWidth - TOOLTIP_VIEWPORT_MARGIN
+  if (overflowLeft) {
+    addClass(tooltip, "md-editor-tooltip--align-start")
+  } else {
+    removeClass(tooltip, "md-editor-tooltip--align-start")
+  }
+  if (!overflowLeft && overflowRight) {
+    addClass(tooltip, "md-editor-tooltip--align-end")
+  } else {
+    removeClass(tooltip, "md-editor-tooltip--align-end")
+  }
+  // 箭头指向锚点中心：换算到 tooltip 坐标系（px），距边缘太近时向内收
+  var placedRect = tooltip.getBoundingClientRect()
+  var arrowX = anchorRect.left + anchorRect.width / 2 - placedRect.left
+  if (arrowX < TOOLTIP_ARROW_EDGE) {
+    arrowX = TOOLTIP_ARROW_EDGE
+  }
+  if (arrowX > placedRect.width - TOOLTIP_ARROW_EDGE) {
+    arrowX = placedRect.width - TOOLTIP_ARROW_EDGE
+  }
+  tooltip.style.setProperty("--md-tooltip-arrow-x", Math.round(arrowX) + "px")
+}
+
 export function setElementVisible(el: HTMLElement, visible: boolean) {
   if (visible) {
     el.style.removeProperty("display")

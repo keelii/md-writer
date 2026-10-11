@@ -4,3 +4,25 @@
 .md-editor-code-block-wrap > pre {
   margin-bottom: var(--line-height);
 }
+
+/* 复制成功态：图标换成绿色对勾，pop 一下冒出（约 1.6s 后恢复剪贴板图标）。
+   叠加 .md-editor-overlay-button 抬高特异性：overlay-button.css 后导入，
+   其中 .md-editor-overlay-button svg 的 color 与此同级（0,1,1），不叠加会覆盖 */
+.md-editor-overlay-button.md-editor-code-block-copy-success svg {
+  color: #16a34a;
+  animation: md-editor-copy-pop 0.18s ease-out;
+}
+
+@keyframes md-editor-copy-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

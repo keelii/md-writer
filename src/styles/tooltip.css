@@ -1,6 +1,9 @@
 /* 通用 tooltip：挂在任意 position:relative 锚点下方的浮层，居中带向上的小箭头。
    定位/边框/阴影/背景等通用形态都在这里；复用方叠加自身类名定义内容尺寸与
-   版式（如脚注引用的 .md-editor-footnote-tooltip 只定宽度和内嵌子编辑器）。 */
+   版式（如脚注引用的 .md-editor-footnote-tooltip 只定宽度和内嵌子编辑器）。
+   屏幕边缘自适应：placeTooltip（utils.tsx）按锚点与视口位置追加位置变体类
+   ——--above 翻到锚点上方（箭头朝下）、--align-start/--end 贴齐锚点左/右缘，
+   箭头水平位置由 --md-tooltip-arrow-x 驱动，始终指向锚点中心。 */
 
 .md-editor-tooltip {
   position: absolute;
@@ -14,7 +17,7 @@
   border-radius: 8px;
   background: #fff;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-  font-size: 0.85em;
+  font-size: 12px;
   font-weight: 400;
   line-height: 1.4;
   color: var(--fore-color);
@@ -22,12 +25,13 @@
 }
 
 /* 居中向上的箭头：45° 旋转的方块，只保留上边和左边框拼出 V 形尖角，
-   白底盖住浮层顶边框接缝 */
+   白底盖住浮层顶边框接缝；水平位置默认居中，placeTooltip 会把
+   --md-tooltip-arrow-x 设为锚点中心（px），贴齐变体下依然指向锚点 */
 .md-editor-tooltip::after {
   content: "";
   position: absolute;
   top: -5px;
-  left: 50%;
+  left: var(--md-tooltip-arrow-x, 50%);
   margin-left: -4px;
   width: 8px;
   height: 8px;
@@ -35,4 +39,32 @@
   border-left: 1px solid var(--border-color);
   border-top: 1px solid var(--border-color);
   transform: rotate(45deg);
+}
+
+/* 上方变体：锚点贴近视口下边缘、下方放不下时整体翻到锚点上方，箭头翻转朝下 */
+.md-editor-tooltip--above {
+  top: auto;
+  bottom: calc(100% + 11px);
+}
+
+.md-editor-tooltip--above::after {
+  top: auto;
+  bottom: -5px;
+  border-left: none;
+  border-top: none;
+  border-right: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* 左右贴齐变体：居中会溢出视口左/右边时贴齐锚点对应边缘，
+   覆盖掉居中的 translateX（箭头位置交给 --md-tooltip-arrow-x） */
+.md-editor-tooltip--align-start {
+  left: 0;
+  transform: none;
+}
+
+.md-editor-tooltip--align-end {
+  left: auto;
+  right: 0;
+  transform: none;
 }
