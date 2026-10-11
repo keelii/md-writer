@@ -1,5 +1,5 @@
 import { Mark, MarkType, Node as PMNode, NodeType, ResolvedPos, Schema } from "prosemirror-model"
-import { EditorState } from "prosemirror-state"
+import { EditorState, Selection, TextSelection } from "prosemirror-state"
 import { lift, toggleMark, wrapIn } from "prosemirror-commands"
 import { redo, undo } from "prosemirror-history"
 import { wrapInList } from "prosemirror-schema-list"
@@ -268,6 +268,52 @@ export function createPreviewSourceReplaceCommand(pos: number, source: string): 
     }
     dispatch(tr)
     return true
+  }
+}
+
+// 块边界垂直方向键命令：ArrowUp/ArrowDown 在文本块首/尾时，直接把光标同步
+// 派发到相邻可编辑块（跳过只读预览块）。返回 true 阻止默认行为后，PM view
+// 的 skipIgnoredNodes / setSelFocus 50ms 定时器 / flush 的 FOCUS-RESET 分支
+// 整条链不再运行——文档首节点为只读预览块时，这条链会把原生跨块移动的光标
+// 在约 50ms 后弹回原位。表格内导航交还默认行为。
+export function moveSelectionAcrossBlock(dir: number): EditorCommand {
+  return function (state, dispatch) {
+    var selection = state.selection
+    if (!selection.empty) {
+      return false
+    }
+    var $from = selection.$from
+    if (state.schema.nodes.table && hasAncestorNodeType($from, state.schema.nodes.table)) {
+      return false
+    }
+    var parent = $from.parent
+    if (!parent.isTextblock || isPreviewBlock(parent)) {
+      return false
+    }
+    var atEdge = dir < 0 ? $from.parentOffset === 0 : $from.parentOffset === parent.content.size
+    if (!atEdge) {
+      return false
+    }
+    // 从当前块边界出发向 dir 方向找最近的文本光标位；落在只读预览块内的
+    // 结果跳过，跨过该块继续找。
+    var searchPos = dir < 0 ? $from.before() : $from.after()
+    var remainingSteps = 100
+    while (remainingSteps-- > 0 && searchPos > 0 && searchPos < state.doc.content.size) {
+      var target = Selection.findFrom(state.doc.resolve(searchPos), dir, true)
+      if (!target || !(target instanceof TextSelection) || target.eq(selection)) {
+        return false
+      }
+      if (!isPreviewBlock(target.$head.parent)) {
+        if (typeof dispatch !== "function") {
+          return true
+        }
+        dispatch(state.tr.setSelection(target).scrollIntoView())
+        return true
+      }
+      var $skip = target.$head
+      searchPos = dir < 0 ? $skip.before() : $skip.after()
+    }
+    return false
   }
 }
 

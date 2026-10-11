@@ -9,6 +9,7 @@ import { keymap } from "prosemirror-keymap"
 import { liftListItem, sinkListItem, splitListItem } from "prosemirror-schema-list"
 import { EditorCommand, EditorDispatch, MDWriterInitOptions } from "../types"
 import { parseMarkdown } from "./markdown"
+import { moveSelectionAcrossBlock } from "./commands"
 import { applyTableMutation, deleteSingleCellTableOnBackspace, deleteTableRowOnBackspace, createExitTableCellRule, getTableContext, guardTableCellDeletion, isLastTableCell, moveTableCellSelection, mutateTableAddRowFirstCell } from "./table"
 import { deletePreviewRawBlockOnBackspace, deletePreviewRawBlockOnDelete } from "./nodeviews/kinds"
 import { BlockMenuRegistration, createBlockMenuPlugin } from "./block-menu"
@@ -451,6 +452,10 @@ export function buildPlugins(schema: Schema, options?: MDWriterInitOptions): Plu
     "Mod-y": redo,
     "Mod-b": toggleMark(schema.marks.strong),
     "Mod-i": toggleMark(schema.marks.em),
+    // 块首/块尾的垂直方向键由应用层同步接管（跳过只读预览块），阻止 PM view
+    // 的 FOCUS-RESET / 50ms setSelFocus 定时器把原生跨块光标弹回原位
+    ArrowUp: moveSelectionAcrossBlock(-1),
+    ArrowDown: moveSelectionAcrossBlock(1),
     Backspace: function (state, dispatch, view) {
       // 单格空表格整表删除；行首格整行删除；单元格删除守卫（跨格选区清空
       // 触及 cell 内容保留网格；NodeSelection 选中 cell 清空其内容；格内

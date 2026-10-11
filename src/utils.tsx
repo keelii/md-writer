@@ -3,6 +3,87 @@ import { h } from "./jsx"
 
 // 通用工具函数：与具体编辑器功能无关，可跨模块复用
 
+/**
+ * 是否未定义
+ * @param s
+ */
+export function isUndefined(s: unknown): s is undefined {
+  return typeof s === "undefined";
+}
+
+/**
+ * 是不是空
+ * @param s
+ */
+export function isNull(s: unknown): s is null {
+  return s === null;
+}
+
+/**
+ * 是不是空或未定义
+ * @param s
+ */
+export function isNil(s: unknown): s is null | undefined {
+  return isUndefined(s) || isNull(s)
+}
+
+/**
+ * 是不是字符串
+ * @param s
+ */
+export function isString(s: unknown): s is string {
+  return typeof s === "string";
+}
+
+/**
+ * 是不是数字
+ * @param s
+ */
+export function isNumber(s: unknown): s is number {
+  return typeof s === "number";
+}
+
+/**
+ * 是不是布尔值
+ * @param s
+ */
+export function isBoolean(s: unknown): s is boolean {
+  return typeof s === "boolean";
+}
+
+/**
+ * 是不是简单数据类型：string, number, boolean
+ * @param s
+ */
+export function isSimpleValue(s: any): s is string | number | boolean {
+  return typeof s === "string" || typeof s === "number" ||
+    typeof s === "boolean";
+}
+
+/**
+ * 是不是对象
+ * @param s
+ */
+export function isObject(s: any): s is object {
+  return typeof s === "object" && s !== null;
+}
+
+/**
+ * 是不是函数
+ * @param s
+ */
+export function isFunction(s: any): s is Function {
+  return typeof s === "function";
+}
+
+/**
+ * 是不是数组
+ * @param s
+ */
+export function isArray<T = any>(s: any): s is Array<T> {
+  return Array.isArray(s);
+}
+
 // 韵律行高兜底值（px）：line-height 解析失败（如 "normal"）时使用，
 // 需与 styles 中 --rhythm（1.75rem = 28px）对应的正文行高保持一致
 export var RHYTHM_UNIT_FALLBACK = 28
