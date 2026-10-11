@@ -1,4 +1,5 @@
 meta.json
+dist
 *.min.*
 .joycode
 .vscode
