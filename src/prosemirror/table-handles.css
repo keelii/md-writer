@@ -85,8 +85,7 @@
 .md-editor-table-handles-dragging-row .md-editor-table-handle-row:not(.md-editor-table-handle-active),
 .md-editor-table-handles-dragging-col .md-editor-table-handle-col:not(.md-editor-table-handle-active),
 .md-editor-table-handles-dragging-row .md-editor-table-handle-col,
-.md-editor-table-handles-dragging-col .md-editor-table-handle-row,
-.md-editor-table-handles-dragging .md-editor-table-handle-col-menu {
+.md-editor-table-handles-dragging-col .md-editor-table-handle-row {
   visibility: hidden;
   opacity: 0
 }
@@ -99,7 +98,6 @@
   left: 0;
   right: 0;
   height: var(--table-handler-size);
-  z-index: 3
 }
 
 /* 行 grip：渲染在各行首列 td/th 里，绝对定位负偏移到表格左缘外侧，上下对齐
@@ -123,7 +121,6 @@
   width: var(--table-handler-size);
   height: var(--table-handler-size);
   cursor: pointer;
-  z-index: 4
 }
 
 /* 列对齐下拉面板：挂在菜单按钮下、向下弹出（覆盖表格首行区域，高 z-index
@@ -187,8 +184,11 @@
 .md-editor-table-handle-col:hover,
 .md-editor-table-handle-row:hover,
 .md-editor-table-handle-selected {
-  background: var(--gray-bg-weak);
+  /*background: var(--gray-bg-weak);*/
 }
+/*.md-editor-table-drop-target .md-editor-table-handle-icon {*/
+/*  color: #333;*/
+/*}*/
 .md-editor-table-handle-active {
   cursor: grabbing;
 }
@@ -232,6 +232,9 @@
   height: var(--table-handler-size);
   color: var(--border-color);
   pointer-events: none
+}
+.md-editor-table-drop-target .md-editor-table-handle-icon {
+  color: var(--fore-color);
 }
 /* 已显现的 grip 图标染蓝（光标驱动显现 / 按住 / 悬停三种可见状态） */
 /*.md-editor-table-active-row .md-editor-table-handle-row .md-editor-table-handle-icon,*/

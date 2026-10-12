@@ -9,6 +9,7 @@
 import { buildSchema } from "../src/prosemirror/schema"
 import { buildMarkdownParser, buildMarkdownSerializer, parseMarkdown } from "../src/prosemirror/markdown"
 import { Node as PMNode } from "prosemirror-model"
+import { NodeSelection } from "prosemirror-state"
 
 var failures = 0
 
@@ -225,6 +226,7 @@ class FakeDomNode {
   className = ""
   textContent = ""
   childNodes: any[] = []
+  listeners: Record<string, Function[]> = {}
   constructor(tagName: string) {
     this.tagName = tagName
   }
@@ -238,6 +240,19 @@ class FakeDomNode {
   appendChild(child: any) {
     this.childNodes.push(child)
     return child
+  }
+  addEventListener(type: string, handler: Function) {
+    ;(this.listeners[type] || (this.listeners[type] = [])).push(handler)
+  }
+  classList = {
+    add: (name: string) => {
+      if (!this.className.split(/\s+/).includes(name)) {
+        this.className = (this.className + " " + name).trim()
+      }
+    },
+    remove: (name: string) => {
+      this.className = this.className.split(/\s+/).filter(function (c) { return c && c !== name }).join(" ")
+    }
   }
 }
 ;(globalThis as any).document = {
@@ -292,6 +307,43 @@ if (viewErr) {
   var domErr = viewErr.dom as unknown as FakeDomNode
   check("nodeview error class", domErr.className, "md-editor-raw-inline-preview md-editor-raw-inline-preview-error")
   check("nodeview error shows source", domErr.textContent, "<svg><rect></svg>")
+}
+
+// ---- 4. NodeView 选中交互 ----
+// selectNode / deselectNode 挂/摘 ProseMirror-selectednode 类
+var viewSel = createRawInlineSvgNodeView(fakeNode(INLINE_SVG))
+check("nodeview created for selection test", !!viewSel, true)
+if (viewSel) {
+  viewSel.selectNode()
+  check("selectNode adds ProseMirror-selectednode",
+    (viewSel.dom as any).className.indexOf("ProseMirror-selectednode") !== -1, true)
+  viewSel.deselectNode()
+  check("deselectNode removes ProseMirror-selectednode",
+    (viewSel.dom as any).className.indexOf("ProseMirror-selectednode") === -1, true)
+}
+
+// mousedown：dispatch NodeSelection(getPos) 并 focus
+// （doc 来自第 1 节：paragraph("前缀 ", raw_inline, " 后缀")，raw_inline 在 pos 4）
+var capturedSel: any = null
+var focused = false
+var fakeTr: any = {
+  setSelection: function (sel: any) { capturedSel = sel; return fakeTr }
+}
+var fakeView: any = {
+  state: { doc: doc, tr: fakeTr },
+  dispatch: function () {},
+  focus: function () { focused = true }
+}
+var viewM = createRawInlineSvgNodeView(fakeNode(INLINE_SVG), fakeView, function () { return 4 })
+check("mousedown nodeview created with view", !!viewM, true)
+if (viewM) {
+  var domM = viewM.dom as unknown as FakeDomNode
+  check("mousedown handler attached", (domM.listeners["mousedown"] || []).length, 1)
+  var fakeEvent = { preventDefault: function () {}, stopPropagation: function () {} }
+  ;(domM.listeners["mousedown"][0] as any)(fakeEvent)
+  check("mousedown dispatches NodeSelection", capturedSel instanceof NodeSelection, true)
+  check("NodeSelection targets raw_inline pos", capturedSel ? capturedSel.from : -1, 4)
+  check("mousedown refocuses editor", focused, true)
 }
 
 if (failures > 0) {

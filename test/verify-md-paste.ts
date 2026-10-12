@@ -259,6 +259,114 @@ function hasSvgRawInline(state: EditorState) {
   assert("svg at heading start renders as raw_block", names18.indexOf("raw_block") !== -1, JSON.stringify(names18))
 }
 
+// ---- 表格单元格内 SVG 粘贴（cell content 只收 inline，一律行内插入）----
+
+// 定位某文本首次出现处之后的绝对位置（用于单元格内构造光标）
+function posAfterText(doc: any, needle: string): number {
+  var found = -1
+  doc.descendants(function (node: any, pos: number) {
+    if (found === -1 && node.isText && node.textContent.indexOf(needle) !== -1) {
+      found = pos + node.textContent.indexOf(needle) + needle.length
+    }
+    return true
+  })
+  return found
+}
+
+function posAtText(doc: any, needle: string): number {
+  var found = -1
+  doc.descendants(function (node: any, pos: number) {
+    if (found === -1 && node.isText && node.textContent.indexOf(needle) !== -1) {
+      found = pos + node.textContent.indexOf(needle)
+    }
+    return true
+  })
+  return found
+}
+
+// 19. SVG 粘贴到单元格文字中间 → 行内 raw_inline，表格不拆
+{
+  var mdTable = "| 名称 | 说明 |\n| --- | --- |\n| 看图标 | 备注行 |\n"
+  var docT = parseMarkdown(schema, parser, mdTable)
+  var posMid = posAfterText(docT, "看图")
+  var r19 = paste(stateWithCursor(mdTable, posMid), SVG_SRC)
+  assert("svg paste mid-cell handled", r19.handled === true)
+  assert("svg mid-cell renders as raw_inline", hasSvgRawInline(r19.state))
+  var names19 = topNodeNames(r19.state)
+  assert("table not split by inline svg", names19.length === 1 && names19[0] === "table", JSON.stringify(names19))
+}
+
+// 20. SVG 粘贴到单元格行首 → 仍行内 raw_inline（cell 不允许块级，不拆表）
+{
+  var mdTable2 = "| 名称 | 说明 |\n| --- | --- |\n| 图标 | 备注行 |\n"
+  var docT2 = parseMarkdown(schema, parser, mdTable2)
+  var posStart = posAtText(docT2, "图标")
+  var r20 = paste(stateWithCursor(mdTable2, posStart), SVG_SRC)
+  assert("svg paste at cell start handled", r20.handled === true)
+  assert("svg at cell start stays inline", hasSvgRawInline(r20.state))
+  var names20 = topNodeNames(r20.state)
+  assert("table not split at cell start", names20.length === 1 && names20[0] === "table", JSON.stringify(names20))
+}
+
+// ---- 行末尾 / 行内 svg 之后粘贴（用户报告的回归场景）----
+
+// 定位首个行内 svg raw_inline 之后的光标位置（紧跟其后，无空格）
+function posAfterRawInline(doc: any): number {
+  var found = -1
+  doc.descendants(function (node: any, pos: number) {
+    if (found === -1 && node.type.name === "raw_inline" && /^<svg\b/i.test(node.textContent)) {
+      found = pos + node.nodeSize
+    }
+    return true
+  })
+  return found
+}
+
+// 统计 svg raw_inline 的个数
+function countSvgRawInline(state: EditorState): number {
+  var count = 0
+  state.doc.descendants(function (node: any) {
+    if (node.type.name === "raw_inline" && /^<svg\b/i.test(node.textContent)) {
+      count += 1
+    }
+    return true
+  })
+  return count
+}
+
+// 21. 光标在行末尾（段落最后一个字之后）→ 行内 raw_inline，段落不劈开
+{
+  var r21 = paste(stateWithCursor("看图标说明", 6), SVG_SRC)
+  assert("svg paste at line end handled", r21.handled === true)
+  assert("svg at line end renders as raw_inline", hasSvgRawInline(r21.state))
+  var names21 = topNodeNames(r21.state)
+  assert("paragraph not split by line-end svg", names21.length === 1 && names21[0] === "paragraph", JSON.stringify(names21))
+}
+
+// 22. 光标在行末尾、且行内已有一个 svg（紧跟其后，无空格）→ 仍行内插入
+{
+  var md22 = "看 " + SVG_SRC
+  var doc22 = parseMarkdown(schema, parser, md22)
+  var pos22 = posAfterRawInline(doc22)
+  var r22 = paste(stateWithCursor(md22, pos22), SVG_SRC)
+  assert("svg paste right after inline svg handled", r22.handled === true)
+  assert("svg after inline svg renders as raw_inline", countSvgRawInline(r22.state) === 2, "count=" + countSvgRawInline(r22.state))
+  var names22 = topNodeNames(r22.state)
+  assert("paragraph not split after inline svg", names22.length === 1 && names22[0] === "paragraph", JSON.stringify(names22))
+}
+
+// 23. 行内 svg 之后再粘贴 svg → 两个 raw_inline 相邻共处同一段落
+{
+  var md23 = "看 " + SVG_SRC + " 说明"
+  var doc23 = parseMarkdown(schema, parser, md23)
+  var pos23 = posAfterRawInline(doc23)
+  var r23 = paste(stateWithCursor(md23, pos23), SVG_SRC)
+  assert("consecutive svg paste handled", r23.handled === true)
+  assert("consecutive svg both inline", countSvgRawInline(r23.state) === 2, "count=" + countSvgRawInline(r23.state))
+  var names23 = topNodeNames(r23.state)
+  assert("paragraph not split by consecutive svg", names23.length === 1 && names23[0] === "paragraph", JSON.stringify(names23))
+}
+
 if (failures) {
   console.log("FAILED: " + failures + " case(s)")
   process.exit(1)

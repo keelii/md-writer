@@ -37,6 +37,17 @@ function isInCodeLikeBlock(state: EditorState): boolean {
   return name === "code_block" || name === "raw_block"
 }
 
+// 光标是否在表格单元格内（table_cell / table_header）：cell content 只收 inline，
+// svg 粘贴须按行内处理，块级 raw_block 会拆破表格结构。
+function isInTableCell(state: EditorState): boolean {
+  var parent = state.selection.$from.parent
+  if (!parent || !parent.type) {
+    return false
+  }
+  var name = parent.type.name
+  return name === "table_cell" || name === "table_header"
+}
+
 // code block 内 Tab：光标处插入两空格；多行选区时对每个被选中的行行首插入缩进。
 export function indentCodeBlockCommand(state: EditorState, dispatch?: EditorDispatch): boolean {
   var selection = state.selection
@@ -323,6 +334,37 @@ export function createMarkdownPastePlugin(schema: Schema, markdownParser: Markdo
     return prefix.trim() ? prefix : ""
   }
 
+  // 按字符对位计算行前缀在解析结果片段里的 PM 切分位置：
+  // 文本节点字符数 === 节点大小；raw_inline 的可显示字符数 = 内容大小、节点大小 = 内容 + 2
+  // （textBetween 对有 content 的节点返回源文本而非 \uFFFC 占位符）；叶子原子节点（image 等）
+  // 显示为 1 个 \uFFFC、节点大小 1。因此不能直接用 linePrefix.length 当切分位置，
+  // 否则行内已有 raw_inline 时光标前缀长度比真实 PM 位置少 +2/个，会劈进节点内部。
+  // 前缀劈在非文本子节点内部（解析转义破坏对位）时返回 -1 放弃行内路径。
+  function inlineHeadCutSize(frag: any, prefix: string): number {
+    var offset = 0
+    var consumed = 0
+    var result = -1
+    var done = false
+    frag.forEach(function (child: any) {
+      if (done) {
+        return
+      }
+      var textLen = child.isText ? child.text.length : (child.isLeaf ? 1 : child.textContent.length)
+      if (consumed + textLen < prefix.length) {
+        consumed += textLen
+        offset += child.nodeSize
+        return
+      }
+      done = true
+      if (consumed + textLen === prefix.length) {
+        result = offset + child.nodeSize
+      } else if (child.isText) {
+        result = offset + (prefix.length - consumed)
+      }
+    })
+    return result
+  }
+
   // 含 <svg>…</svg> 的粘贴文本 → markdown 解析管线渲染为预览节点。
   // 行内/块级语义与源码模式保持一致（paragraph / heading / 表格单元格均适用）：
   // - 光标前同行有非空白文本（svg 落点不在行首）→ 行内路径：把粘贴文本拼到
@@ -332,14 +374,22 @@ export function createMarkdownPastePlugin(schema: Schema, markdownParser: Markdo
   //   行首 <svg> 即块级 raw_block 预览；svg 夹在文本中间则解析为含 raw_inline 的段落。
   function pasteSvgMarkup(view: EditorView, text: string): boolean {
     var linePrefix = currentParagraphLinePrefix(view.state)
+    // 表格单元格行首：cell content 只收 inline，块级 raw_block 会被 replaceRange
+    // 撑破单元格结构（拆表），改用占位前缀强制走行内路径（解析后剥掉占位符）。
+    var cellInlineOnly = false
+    if (!linePrefix && isInTableCell(view.state)) {
+      linePrefix = "x"
+      cellInlineOnly = true
+    }
     if (linePrefix) {
       try {
         var doc = parseMarkdown(schema, markdownParser, linePrefix + text)
         var para = doc.content.childCount === 1 ? doc.content.firstChild : null
         if (para && para.type.name === "paragraph" && para.content.size > linePrefix.length) {
-          var head = para.content.cut(0, linePrefix.length)
-          if (head.textBetween(0, head.size, "\n", "\uFFFC") === linePrefix) {
-            var tail = para.content.cut(linePrefix.length)
+          var headSize = inlineHeadCutSize(para.content, linePrefix)
+          var head = headSize !== -1 ? para.content.cut(0, headSize) : null
+          if (head && head.textBetween(0, head.size, "\n", "\uFFFC") === linePrefix) {
+            var tail = para.content.cut(headSize)
             if (tail.size) {
               view.dispatch(view.state.tr.replaceSelection(new Slice(tail, 0, 0)).scrollIntoView())
               return true
@@ -348,6 +398,10 @@ export function createMarkdownPastePlugin(schema: Schema, markdownParser: Markdo
         }
       } catch (error) {
         // 行内路径失败，落到下方块级路径
+      }
+      if (cellInlineOnly) {
+        // 单元格内不做块级插入，交回默认纯文本粘贴（保表结构）
+        return false
       }
     }
     var trimmed = text.replace(/^[\s\u00a0]+|[\s\u00a0]+$/g, "")
