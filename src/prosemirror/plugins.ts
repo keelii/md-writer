@@ -393,20 +393,38 @@ function readTextFile(file: File): Promise<string> {
 //   document 级 drop 监听跳过，避免双重插入
 // - drop 落在页面其他位置：document 级 drop 监听读取文件，走同一插入管线
 // - 读取所有 .md 类文件，合并后走 markdown 解析管线整体替换原文档（等效"打开该文件"）
-export function createMarkdownFileDropPlugin(schema: Schema, markdownParser: MarkdownParser): Plugin {
-  function insertDroppedMarkdown(view: EditorView, text: string) {
+export interface MarkdownFileDropOptions {
+  // 文档即将被拖入文件整体替换（dispatch 前）：用于重置保存基线与旧保存目标
+  onFileWillOpen?: () => void
+  // 拖入单个 md 文件且浏览器支持时（Chromium），在文档替换完成后回传源文件写入句柄，
+  // 供 Meta+S 直接写回源文件；Safari/Firefox 不支持，不会触发
+  onFileTarget?: (handle: any, fileName: string) => void
+}
+
+export function createMarkdownFileDropPlugin(
+  schema: Schema,
+  markdownParser: MarkdownParser,
+  options?: MarkdownFileDropOptions
+): Plugin {
+  // 返回是否完成文档替换（空文本/解析失败返回 false，不触发任何回调）
+  function insertDroppedMarkdown(view: EditorView, text: string): boolean {
     var trimmed = text.replace(/^\s+|\s+$/g, "")
     if (!trimmed) {
-      return
+      return false
     }
     var doc
     try {
       doc = parseMarkdown(schema, markdownParser, trimmed)
     } catch (error) {
-      return
+      return false
     }
     if (!doc || !doc.content.size) {
-      return
+      return false
+    }
+    // 替换即将发生：通知宿主重置保存基线与旧保存目标（须在 dispatch 前，
+    // 使随后的 sync 以新文档内容建立干净基线）
+    if (options && options.onFileWillOpen) {
+      options.onFileWillOpen()
     }
     var state = view.state
     var tr = state.tr
@@ -415,6 +433,7 @@ export function createMarkdownFileDropPlugin(schema: Schema, markdownParser: Mar
     // Selection.near 兜底：文档以列表/代码块等非内联节点结尾时，文末位置不合法
     tr.setSelection(Selection.near(tr.doc.resolve(tr.doc.content.size), -1))
     view.dispatch(tr.scrollIntoView())
+    return true
   }
 
   // 从 drop 事件提取全部 md 类文件；无文件或不含 md 文件时返回 null
@@ -432,18 +451,69 @@ export function createMarkdownFileDropPlugin(schema: Schema, markdownParser: Mar
     return mdFiles.length > 0 ? mdFiles : null
   }
 
+  // Chromium：drop 事件同步阶段调用 getAsFileSystemHandle 才有效（异步 resolve）。
+  // 仅单文件拖入时提取源文件句柄；多文件合并无单一目标，不提取。
+  // 返回 promise（永不 reject，失败 resolve null），与文本读取串行汇合。
+  function extractDroppedFileHandle(
+    event: DragEvent,
+    mdFiles: File[]
+  ): Promise<{ handle: any; fileName: string } | null> {
+    if (!options || !options.onFileTarget || mdFiles.length !== 1) {
+      return Promise.resolve(null)
+    }
+    var dataTransfer = event.dataTransfer
+    if (!dataTransfer || !dataTransfer.items || !dataTransfer.items.length) {
+      return Promise.resolve(null)
+    }
+    for (var i = 0; i < dataTransfer.items.length; i += 1) {
+      var item: any = dataTransfer.items[i]
+      if (typeof item.getAsFileSystemHandle !== "function") {
+        return Promise.resolve(null)
+      }
+      var file = item.getAsFile ? item.getAsFile() : null
+      if (!file || !isMarkdownFile(file)) {
+        continue
+      }
+      return item.getAsFileSystemHandle().then(
+        function (handle: any) {
+          // 非 file 句柄（目录等）：视作无句柄，Meta+S 退回另存为/下载
+          if (!handle || handle.kind !== "file") {
+            return null
+          }
+          return { handle: handle, fileName: file.name }
+        },
+        function () {
+          // 句柄提取失败：不阻塞打开流程
+          return null
+        }
+      )
+    }
+    return Promise.resolve(null)
+  }
+
+  // 句柄上报须晚于文档替换完成（先 onFileWillOpen 重置旧目标 → 替换文档建立新基线 →
+  // 再注入新句柄），故句柄 promise 与文本读取汇合后再插入并上报
   function dispatchDroppedFiles(view: EditorView, event: DragEvent, mdFiles: File[]) {
     event.preventDefault()
+    var targetPromise = extractDroppedFileHandle(event, mdFiles)
     Promise.all(mdFiles.map(readTextFile)).then(
       function (texts) {
         // FileReader 异步窗口内编辑器可能已卸载
         if (!view.dom.isConnected) {
           return
         }
-        insertDroppedMarkdown(view, texts.join("\n\n"))
+        targetPromise.then(function (target) {
+          if (!view.dom.isConnected) {
+            return
+          }
+          var inserted = insertDroppedMarkdown(view, texts.join("\n\n"))
+          if (inserted && target && options && options.onFileTarget) {
+            options.onFileTarget(target.handle, target.fileName)
+          }
+        })
       },
       function () {
-        // 读取失败（权限/编码异常）静默放弃，保持原文档
+        // 读取失败（权限/编码异常）静默放弃，保持原文档，不重置保存状态
       }
     )
   }

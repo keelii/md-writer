@@ -97,6 +97,15 @@ export function createMarkdownFileSaver(): MarkdownFileSaver {
     getTargetName: function () {
       return targetName
     },
+    setTarget: function (handle: any, name?: string) {
+      if (!handle) {
+        fileHandle = null
+        targetName = null
+        return
+      }
+      fileHandle = handle
+      targetName = (handle && handle.name) || name || null
+    },
     reset: function () {
       fileHandle = null
       targetName = null

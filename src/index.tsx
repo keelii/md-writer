@@ -108,8 +108,20 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
   // markdown 粘贴插件置于最前，保证 handlePaste 优先于默认行为
   plugins.unshift(createMarkdownPastePlugin(schema, markdownParser))
   // 本地 md 文件拖入插件：响应整个页面（document）的文件拖放，
-  // drop 落点走 markdown 解析管线，置于最前接管文件拖放
-  plugins.unshift(createMarkdownFileDropPlugin(schema, markdownParser))
+  // drop 落点走 markdown 解析管线，置于最前接管文件拖放。
+  // onFileWillOpen：文档即将被替换 → 重置旧保存目标、标记待建立新基线；
+  // onFileTarget：Chromium 下回传拖入源文件句柄 → Meta+S 直接写回源文件
+  plugins.unshift(
+    createMarkdownFileDropPlugin(schema, markdownParser, {
+      onFileWillOpen: function () {
+        pendingFileOpen = true
+        fileSaver.reset()
+      },
+      onFileTarget: function (handle: any, fileName: string) {
+        fileSaver.setTarget(handle, fileName)
+      }
+    })
+  )
   // 表格行列坐标（tr[data-row] / td[data-col]）：node 装饰由 PM 自身应用，
   // 直接 setAttribute 会触发 attribute mutation 重绘把手
   plugins.push(createTableCoordsPlugin())
@@ -180,6 +192,41 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
     })
   }
 
+  // —— 脏状态（未保存修改）跟踪：title 最前面的 * 前缀 ——
+  // 基线 = 最近一次"初始化 / 拖入打开文件 / 保存成功"时的文档内容；
+  // 当前内容与基线不一致时，在 document.title 最前面加 *，一致时移除
+  var baseTitle = document.title.replace(/^\*\s?/, "")
+  var savedBaseline: string | null = null
+  var pendingFileOpen = false
+
+  function updateTitleDirty(dirty: boolean) {
+    var title = document.title
+    if (dirty) {
+      if (title.indexOf("*") !== 0) {
+        document.title = "* " + baseTitle
+      }
+    } else if (title.indexOf("*") === 0) {
+      document.title = baseTitle
+    }
+  }
+
+  function updateDirtyIndicator(currentMarkdown: string) {
+    if (savedBaseline === null) {
+      // 首次调用（init sync）：以初始内容建立基线，视为干净
+      savedBaseline = currentMarkdown
+      updateTitleDirty(false)
+      return
+    }
+    if (pendingFileOpen) {
+      // 刚拖入打开文件：插入后的内容即新基线（干净状态）
+      pendingFileOpen = false
+      savedBaseline = currentMarkdown
+      updateTitleDirty(false)
+      return
+    }
+    updateTitleDirty(currentMarkdown !== savedBaseline)
+  }
+
   function sync(nextState: EditorState) {
     var markdown = serializer.serialize(nextState.doc)
     if (storageBackend) {
@@ -188,6 +235,7 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
     if (isFunction(opts.onChange)) {
       opts.onChange(markdown)
     }
+    updateDirtyIndicator(markdown)
     return markdown
   }
 
@@ -228,9 +276,10 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
       var editor = createCodeMirrorSourceEditor(
         sourceHost,
         serializer.serialize(view.state.doc),
-        // 源码态的输入不经过 PM dispatchTransaction：由 CodeMirror 透传给持久层
+        // 源码态的输入不经过 PM dispatchTransaction：由 CodeMirror 透传给持久层与脏状态跟踪
         function (value: string) {
           schedulePersistContent(value)
+          updateDirtyIndicator(value)
         }
       )
       return editor
@@ -520,7 +569,8 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
     tocRootElement = null
   })
 
-  // Meta+S 保存到本地文件：首次另存为（showSaveFilePicker），后续覆盖写缓存 handle，
+  // Meta+S 保存到本地文件：拖入的源文件直接覆盖写（句柄由拖放插件注入），
+  // 无目标时首次另存为（showSaveFilePicker），之后覆盖写缓存 handle，
   // 不支持 File System Access API 的浏览器降级为下载。save 永不 reject。
   // 源码态保存取 CodeMirror 当前值，所见态保存取 serializer 序列化结果。
   var fileSaver = createMarkdownFileSaver()
@@ -528,7 +578,14 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
     var markdown = isSourceModeActive() && sourceEditor
       ? sourceEditor.getValue()
       : serializer.serialize(view.state.doc)
-    fileSaver.save(markdown)
+    fileSaver.save(markdown).then(function (status) {
+      // 保存/下载落盘成功：本次内容成为新基线，清除 title 的 * 前缀；
+      // cancelled / failed 保持脏状态不变
+      if (status === "saved" || status === "downloaded") {
+        savedBaseline = markdown
+        updateTitleDirty(false)
+      }
+    })
   }
 
   var onGlobalKeydown = function (event: KeyboardEvent) {
@@ -561,6 +618,8 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
   document.addEventListener("keydown", onGlobalKeydown, true)
   lifecycleListeners.push(function () {
     document.removeEventListener("keydown", onGlobalKeydown, true)
+    // destroy：清除 title 上的脏标记前缀，恢复宿主页面原始 title
+    document.title = baseTitle
   })
 
   sync(state)
