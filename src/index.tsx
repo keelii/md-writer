@@ -125,7 +125,7 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
       onFileTarget: function (handle: any, fileName: string) {
         fileSaver.setTarget(handle, fileName)
       }
-    })
+    }, opts)
   )
   // 表格行列坐标（tr[data-row] / td[data-col]）：node 装饰由 PM 自身应用，
   // 直接 setAttribute 会触发 attribute mutation 重绘把手
@@ -421,7 +421,7 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
           }
           // 行内 SVG（isSvgRawBlockText 锚定 ^<svg / </svg>$）优先于公式，
           // 避免含 $ 的 svg 文本被公式 pattern 先吞掉
-          var svgInlineView = createRawInlineSvgNodeView(node)
+          var svgInlineView = createRawInlineSvgNodeView(node, editorView, getPos)
           if (svgInlineView) {
             return svgInlineView
           }

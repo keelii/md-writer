@@ -207,6 +207,21 @@ export function createLinkRemoveCommand(link: MarkType, range: {from: number, to
   }
 }
 
+// 完整链接地址判定：经 URL 构造器解析成功且协议为 http/https。
+// URL 构造器会静默剥离 \t\r\n（"https://a.com\nx" 也能解析成功），故先拒绝
+// 含这三类字符的文本，避免跨块选区被误判为完整地址。
+export function isCompleteHttpUrl(text: string): boolean {
+  if (!text || /[\t\r\n]/.test(text)) {
+    return false
+  }
+  try {
+    var parsed = new URL(text)
+    return parsed.protocol === "http:" || parsed.protocol === "https:"
+  } catch (error) {
+    return false
+  }
+}
+
 // 链接命令（纯）：新建链接 —— 选区非空时对选区应用 mark；空选区时插入 href 文本并应用 mark
 export function createLinkApplyCommand(link: MarkType, from: number, to: number, href: string): EditorCommand {
   return function (state, dispatch) {

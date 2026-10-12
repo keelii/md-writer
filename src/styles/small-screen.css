@@ -28,6 +28,15 @@
     gap: 2px;
   }
 
+  /* 窄屏：韵律网格调试按钮（toggle_rhythm，dev 构建渲染）隐藏，不挤占工具栏；
+     prod 构建下按钮本就不渲染，规则无副作用 */
+  .md-controls [data-md-editor-view="toggle_rhythm"] {
+    display: none;
+  }
+
+  .md-editor-block-op-menu-button:hover {
+    background: transparent;
+  }
   /* 窄屏：更多操作命令组收进 ⋯ 下拉面板
      （宽屏下 .md-editor-more-panel 为 display:contents 平铺、⋯ 按钮隐藏，见 toolbar.css） */
   button.md-editor-more-toggle {
@@ -43,7 +52,7 @@
     margin-top: 4px;
     padding: 4px;
     border-radius: 4px;
-    background: #fff;
+    background: var(--bg-color);
     border: 1px solid #e5e7eb;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     z-index: 30;
@@ -72,8 +81,11 @@
 
   /* 窄屏：块级悬浮菜单轨道收窄（宽屏 -3rem，见 block-menu.css） */
   .md-editor-block-menu {
-    margin-left: -2.5rem;
+    margin-left: -2rem;
     padding-right: 0;
+  }
+  .md-editor-table-menu {
+    margin-left: -2.5rem;
   }
 
   /* 窄屏：块操作下拉面板从右对齐改为相对内容区左对齐。
@@ -83,5 +95,13 @@
   .md-editor-block-op-menu-panel {
     right: auto;
     left: 2rem;
+  }
+
+  .md-editor-toc {
+    background: var(--bg-color);
+    margin-left: auto;
+    right: 0;
+    width: 80%;
+    box-shadow: -1px 0 2px #eee;
   }
 }

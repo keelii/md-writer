@@ -11,6 +11,7 @@ body {
   --line-height-2x: 3.5rem;
 
   --fore-color: rgb(51,51,51);
+  --bg-color: rgb(255,255,255, 0.95);
   --link-color: #2478ff;
   --strong-color: rgb(26,26,26);
   --border-color: #e6e6e6;

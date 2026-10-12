@@ -15,7 +15,7 @@
   padding: 1em;
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  background: #fff;
+  background: var(--bg-color);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   font-size: 12px;
   font-weight: 400;
@@ -35,7 +35,7 @@
   margin-left: -4px;
   width: 8px;
   height: 8px;
-  background: #fff;
+  background: var(--bg-color);
   border-left: 1px solid var(--border-color);
   border-top: 1px solid var(--border-color);
   transform: rotate(45deg);

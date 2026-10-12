@@ -8,8 +8,9 @@ import { InputRule, inputRules, wrappingInputRule } from "prosemirror-inputrules
 import { keymap } from "prosemirror-keymap"
 import { liftListItem, sinkListItem, splitListItem } from "prosemirror-schema-list"
 import { EditorCommand, EditorDispatch, MDWriterInitOptions } from "../types"
-import { parseMarkdown } from "./markdown"
+import { parseMarkdown, hasRawSvgMarkup } from "./markdown"
 import { moveSelectionAcrossBlock } from "./commands"
+import { resolveImageAttrs } from "./image-upload"
 import { applyTableMutation, deleteSingleCellTableOnBackspace, deleteTableRowOnBackspace, createExitTableCellRule, getTableContext, guardTableCellDeletion, isLastTableCell, moveTableCellSelection, mutateTableAddRowFirstCell } from "./table"
 import { deletePreviewRawBlockOnBackspace, deletePreviewRawBlockOnDelete } from "./nodeviews/kinds"
 import { BlockMenuRegistration, createBlockMenuPlugin } from "./block-menu"
@@ -304,7 +305,68 @@ function looksLikeMarkdownSource(text: string): boolean {
 // 可视模式粘贴：剪贴板内容是大段 md 源码（含 heading）时，
 // 直接走 markdown 解析管线重新渲染（等效于把这段源码设置进源码编辑器再渲染出来），
 // 避免被当作纯文本插入导致 heading 等语法不生效。
+// 含 <svg>…</svg> 的剪贴板内容同样走解析管线（hasRawSvgMarkup 分支），
+// 否则单行 svg 不满足大段源码判定，会被默认粘贴当作纯文本字面插入，无法渲染。
 export function createMarkdownPastePlugin(schema: Schema, markdownParser: MarkdownParser): Plugin {
+  // 光标所在行内文本块（paragraph / heading / table_cell 等）中、光标之前的同行文本；
+  // 非文本块 / 行首（含纯空白）时为空串。
+  // 用途：判定粘贴落点是否在行内（源码模式下 svg 不在行首即按行内 raw 解析）。
+  // heading / 单元格的前缀取其行内文本（不含 "# " 等标记），拼接解析时按普通文本行还原行内片段。
+  function currentParagraphLinePrefix(state: EditorState): string {
+    var $from = state.selection.$from
+    var parent = $from.parent
+    if ((parent.type.name !== "paragraph" && parent.type.name !== "heading" &&
+         parent.type.name !== "table_cell" && parent.type.name !== "table_header") || $from.parentOffset <= 0) {
+      return ""
+    }
+    var prefix = parent.textBetween(0, $from.parentOffset, "\n", "\uFFFC")
+    return prefix.trim() ? prefix : ""
+  }
+
+  // 含 <svg>…</svg> 的粘贴文本 → markdown 解析管线渲染为预览节点。
+  // 行内/块级语义与源码模式保持一致（paragraph / heading / 表格单元格均适用）：
+  // - 光标前同行有非空白文本（svg 落点不在行首）→ 行内路径：把粘贴文本拼到
+  //   行前缀后按同一行解析，从结果段落剥出“粘贴新增”的行内片段插入，不劈开段落；
+  //   解析侧前缀与原行前缀逐字对位校验，实体/markdown 转义破坏对位时放弃该路径。
+  // - 光标在行首（空段落 / 行首位置）→ 块级路径：粘贴文本单独解析，
+  //   行首 <svg> 即块级 raw_block 预览；svg 夹在文本中间则解析为含 raw_inline 的段落。
+  function pasteSvgMarkup(view: EditorView, text: string): boolean {
+    var linePrefix = currentParagraphLinePrefix(view.state)
+    if (linePrefix) {
+      try {
+        var doc = parseMarkdown(schema, markdownParser, linePrefix + text)
+        var para = doc.content.childCount === 1 ? doc.content.firstChild : null
+        if (para && para.type.name === "paragraph" && para.content.size > linePrefix.length) {
+          var head = para.content.cut(0, linePrefix.length)
+          if (head.textBetween(0, head.size, "\n", "\uFFFC") === linePrefix) {
+            var tail = para.content.cut(linePrefix.length)
+            if (tail.size) {
+              view.dispatch(view.state.tr.replaceSelection(new Slice(tail, 0, 0)).scrollIntoView())
+              return true
+            }
+          }
+        }
+      } catch (error) {
+        // 行内路径失败，落到下方块级路径
+      }
+    }
+    var trimmed = text.replace(/^[\s\u00a0]+|[\s\u00a0]+$/g, "")
+    if (!trimmed) {
+      return false
+    }
+    var parsed
+    try {
+      parsed = parseMarkdown(schema, markdownParser, trimmed)
+    } catch (error) {
+      return false
+    }
+    if (!parsed || !parsed.content.size) {
+      return false
+    }
+    view.dispatch(view.state.tr.replaceSelection(new Slice(parsed.content, 0, 0)).scrollIntoView())
+    return true
+  }
+
   return new Plugin({
     props: {
       handlePaste: function (view: EditorView, event: ClipboardEvent) {
@@ -313,25 +375,31 @@ export function createMarkdownPastePlugin(schema: Schema, markdownParser: Markdo
           return false
         }
         var text = clipboardData.getData("text/plain")
-        if (!looksLikeMarkdownSource(text)) {
+        if (!text) {
           return false
         }
         // 代码类块内粘贴保持纯文本（源码示例不应被转换）
         if (isInCodeLikeBlock(view.state)) {
           return false
         }
-        var doc
-        try {
-          doc = parseMarkdown(schema, markdownParser, text)
-        } catch (error) {
-          return false
+        if (looksLikeMarkdownSource(text)) {
+          var doc
+          try {
+            doc = parseMarkdown(schema, markdownParser, text)
+          } catch (error) {
+            return false
+          }
+          if (!doc || !doc.content.size) {
+            return false
+          }
+          var tr = view.state.tr.replaceSelection(new Slice(doc.content, 0, 0))
+          view.dispatch(tr.scrollIntoView())
+          return true
         }
-        if (!doc || !doc.content.size) {
-          return false
+        if (hasRawSvgMarkup(text)) {
+          return pasteSvgMarkup(view, text)
         }
-        var tr = view.state.tr.replaceSelection(new Slice(doc.content, 0, 0))
-        view.dispatch(tr.scrollIntoView())
-        return true
+        return false
       }
     }
   })
@@ -357,6 +425,11 @@ function isMarkdownFile(file: File): boolean {
     }
   }
   return false
+}
+
+// 图片文件判定：按 MIME 前缀（本地图片拖入时浏览器均会带 image/* 类型）
+function isImageFile(file: File): boolean {
+  return String(file.type || "").slice(0, 6) === "image/"
 }
 
 // dataTransfer.types 含 "Files" 才是文件拖动（PM 内部节点拖动不含此类型）
@@ -393,6 +466,9 @@ function readTextFile(file: File): Promise<string> {
 //   document 级 drop 监听跳过，避免双重插入
 // - drop 落在页面其他位置：document 级 drop 监听读取文件，走同一插入管线
 // - 读取所有 .md 类文件，合并后走 markdown 解析管线整体替换原文档（等效"打开该文件"）
+// 图片文件拖入复用同一接管框架（非 md 文件中的 image/* 类型）：
+// - 落点在编辑器内：按鼠标坐标在落点插入 image 节点（code_block 等纯文本块不插入）
+// - 落点在编辑器外：插入到当前选区；src 解析走 onImageUpload（无则 dataURL）
 export interface MarkdownFileDropOptions {
   // 文档即将被拖入文件整体替换（dispatch 前）：用于重置保存基线与旧保存目标；
   // fileName 为首个 md 文件名（多文件合并时取第一个），供宿主切换 title 等显示
@@ -405,7 +481,8 @@ export interface MarkdownFileDropOptions {
 export function createMarkdownFileDropPlugin(
   schema: Schema,
   markdownParser: MarkdownParser,
-  options?: MarkdownFileDropOptions
+  options?: MarkdownFileDropOptions,
+  uploadOpts?: MDWriterInitOptions
 ): Plugin {
   // 返回是否完成文档替换（空文本/解析失败返回 false，不触发任何回调）
   // fileName：首个 md 文件名，随 onFileWillOpen 透传给宿主（title 显示等）
@@ -451,6 +528,21 @@ export function createMarkdownFileDropPlugin(
       }
     }
     return mdFiles.length > 0 ? mdFiles : null
+  }
+
+  // 从 drop 事件提取全部图片文件；无文件或不含图片时返回 null
+  function readDroppedImageFiles(event: DragEvent): File[] | null {
+    var dataTransfer = event.dataTransfer
+    if (!dataTransfer || !dataTransfer.files || dataTransfer.files.length === 0) {
+      return null
+    }
+    var imageFiles: File[] = []
+    for (var i = 0; i < dataTransfer.files.length; i += 1) {
+      if (isImageFile(dataTransfer.files[i])) {
+        imageFiles.push(dataTransfer.files[i])
+      }
+    }
+    return imageFiles.length > 0 ? imageFiles : null
   }
 
   // Chromium：drop 事件同步阶段调用 getAsFileSystemHandle 才有效（异步 resolve）。
@@ -520,6 +612,77 @@ export function createMarkdownFileDropPlugin(
     )
   }
 
+  // 图片拖入：计算插入位置。落点在编辑器内 → 按鼠标坐标定位（posAtCoords），
+  // 落点所在文本块须能容纳内联图片（code_block 等纯文本块不插入）；
+  // 落点在编辑器外（document 级接管）→ 插入到当前选区（同样校验选区可容纳）。
+  // 找不到合法位置返回 null，本次拖入静默放弃。
+  function resolveImageDropPos(view: EditorView, event: DragEvent): number | null {    var image = view.state.schema.nodes.image
+    if (!image) {
+      return null
+    }
+    if (view.dom.contains(event.target as Node)) {
+      var coords = view.posAtCoords({left: event.clientX, top: event.clientY})
+      if (!coords) {
+        return null
+      }
+      var $pos = view.state.doc.resolve(coords.pos)
+      if ($pos.parent.type.contentMatch.matchType(image)) {
+        return coords.pos
+      }
+      return null
+    }
+    if (view.state.selection.$from.parent.type.contentMatch.matchType(image)) {
+      return view.state.selection.from
+    }
+    return null
+  }
+
+  // 图片文件解析出 src/alt 后在插入位置依次插入 image 节点（多张按文件顺序排列）。
+  // src 解析复用弹窗上传管线：宿主提供 onImageUpload 则走宿主，否则内联 dataURL。
+  function insertDroppedImages(view: EditorView, event: DragEvent, imageFiles: File[]) {
+    event.preventDefault()
+    var insertPos = resolveImageDropPos(view, event)
+    Promise.all(
+      imageFiles.map(function (file) {
+        return resolveImageAttrs(file, uploadOpts)
+      })
+    ).then(
+      function (attrsList) {
+        // FileReader 异步窗口内编辑器可能已卸载
+        if (!view.dom.isConnected || insertPos == null) {
+          return
+        }
+        var image = view.state.schema.nodes.image
+        if (!image) {
+          return
+        }
+        var state = view.state
+        var tr = state.tr
+        var changed = false
+        for (var i = 0; i < attrsList.length; i += 1) {
+          var attrs = attrsList[i]
+          if (!attrs || !attrs.src) {
+            continue
+          }
+          var node = image.create({
+            src: attrs.src,
+            alt: attrs.alt || "",
+            title: attrs.title == null ? null : attrs.title
+          })
+          tr.insert(insertPos, node)
+          insertPos += node.nodeSize
+          changed = true
+        }
+        if (changed) {
+          view.dispatch(tr.scrollIntoView())
+        }
+      },
+      function () {
+        // 解析失败（onImageUpload 抛错 / 读取失败）静默放弃，不修改文档
+      }
+    )
+  }
+
   return new Plugin({
     // document 级监听随插件实例生命周期挂载/移除（view.destroy 时自动清理）
     view: function (editorView: EditorView) {
@@ -545,10 +708,15 @@ export function createMarkdownFileDropPlugin(
           return
         }
         var mdFiles = readDroppedMarkdownFiles(event)
-        if (!mdFiles) {
+        if (mdFiles) {
+          dispatchDroppedFiles(editorView, event, mdFiles)
           return
         }
-        dispatchDroppedFiles(editorView, event, mdFiles)
+        // 编辑器外 drop 图片：同样接管（阻止浏览器导航打开图片、避免丢失编辑内容），插入到当前选区
+        var imageFiles = readDroppedImageFiles(event)
+        if (imageFiles) {
+          insertDroppedImages(editorView, event, imageFiles)
+        }
       }
       document.addEventListener("dragover", onDragOver)
       document.addEventListener("dragleave", onDragLeave)
@@ -565,11 +733,18 @@ export function createMarkdownFileDropPlugin(
     props: {
       handleDrop: function (view: EditorView, event: DragEvent) {
         var mdFiles = readDroppedMarkdownFiles(event)
-        if (!mdFiles) {
-          return false
+        if (mdFiles) {
+          dispatchDroppedFiles(view, event, mdFiles)
+          return true
         }
-        dispatchDroppedFiles(view, event, mdFiles)
-        return true
+        // 非 md 文件中的图片：在落点插入 image 节点（md 文件优先级高于图片，
+        // 混合拖入时按"打开文档"处理）
+        var imageFiles = readDroppedImageFiles(event)
+        if (imageFiles) {
+          insertDroppedImages(view, event, imageFiles)
+          return true
+        }
+        return false
       }
     }
   })

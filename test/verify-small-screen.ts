@@ -49,16 +49,18 @@ assert(noComments.indexOf(".ProseMirror:not(.md-editor-tooltip .ProseMirror)") !
 assert(noComments.indexOf("button.md-editor-more-toggle") !== -1, "2e 含 ⋯ 按钮窄屏显示规则")
 assert(noComments.indexOf(".md-editor-block-op-menu-panel") !== -1, "2f 含块操作面板窄屏左对齐规则")
 assert(noComments.indexOf(".md-editor-block-menu") !== -1, "2g 含块级悬浮菜单窄屏轨道规则")
+assert(noComments.indexOf('[data-md-editor-view="toggle_rhythm"]') !== -1,
+  "2h 含韵律网格按钮窄屏隐藏规则（toggle_rhythm）")
 
 var layoutCss = readFileSync("src/styles/layout.css", "utf-8")
 var toolbarCss = readFileSync("src/styles/toolbar.css", "utf-8")
 var blockMenuCss = readFileSync("src/prosemirror/block-menu.css", "utf-8")
 var blockOpMenuCss = readFileSync("src/prosemirror/block-op-menu.css", "utf-8")
 var stripComments = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "")
-assert(!media480.test(stripComments(layoutCss)), "2h layout.css 无 480px media query（注释除外）")
-assert(!media480.test(stripComments(toolbarCss)), "2i toolbar.css 无 480px media query（注释除外）")
-assert(!media480.test(stripComments(blockMenuCss)), "2j block-menu.css 无 480px media query（注释除外）")
-assert(!media480.test(stripComments(blockOpMenuCss)), "2k block-op-menu.css 无 480px media query（注释除外）")
+assert(!media480.test(stripComments(layoutCss)), "2i layout.css 无 480px media query（注释除外）")
+assert(!media480.test(stripComments(toolbarCss)), "2j toolbar.css 无 480px media query（注释除外）")
+assert(!media480.test(stripComments(blockMenuCss)), "2k block-menu.css 无 480px media query（注释除外）")
+assert(!media480.test(stripComments(blockOpMenuCss)), "2l block-op-menu.css 无 480px media query（注释除外）")
 
 console.log("")
 console.log("--- 3. dist 产物 ---")

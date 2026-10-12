@@ -23,6 +23,13 @@
   max-width: 100%;
   vertical-align: text-bottom;
 }
+/* 行内 SVG 可点击选中（NodeSelection），选中轮廓与 raw-block-shell 同风格 */
+.md-editor-raw-inline-svg {
+  cursor: pointer;
+}
+.md-editor-raw-inline-svg.ProseMirror-selectednode {
+  outline: 2px solid #708cff;
+}
 .md-editor-raw-inline-preview.md-editor-raw-inline-preview-error {
   color: #b91c1c;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;

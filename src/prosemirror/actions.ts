@@ -7,7 +7,7 @@ import { EditorAction, MDWriterInitOptions } from "../types"
 import { requestHrefByDialog } from "./link-dialog"
 import { requestImageByDialog } from "./image-dialog"
 import { requestSourceByDialog } from "./source-edit-dialog"
-import { createImageInsertCommand, createLinkApplyCommand, createLinkEditCommand, createLinkRemoveCommand, createPreviewSourceReplaceCommand, getActiveLinkMark, getLinkMarkRangeAtCursor } from "./commands"
+import { createImageInsertCommand, createLinkApplyCommand, createLinkEditCommand, createLinkRemoveCommand, createPreviewSourceReplaceCommand, getActiveLinkMark, getLinkMarkRangeAtCursor, isCompleteHttpUrl } from "./commands"
 import { getRawBlockKind, isPreviewBlock } from "./nodeviews/kinds"
 
 // 链接 Action：光标在链接内或选区包含链接时进入编辑弹窗（可改可删），否则新建链接
@@ -40,6 +40,22 @@ function createLinkAction(link: MarkType): EditorAction {
         view.focus()
       })
       return
+    }
+
+    // 选中文本恰好是完整链接地址（http/https，经 URL 构造器判定）时直达：
+    // 直接把选区文本设为链接 href 并应用 link mark，不再弹窗。
+    // 选区含 link mark 的情况已在上文进入编辑弹窗，走到这里必然是纯文本选区。
+    // 选区首尾可能带空白（拖蓝多选），mark 范围收缩到 trim 后的地址部分。
+    if (!state.selection.empty) {
+      var selectedText = state.doc.textBetween(state.selection.from, state.selection.to)
+      var trimmedText = selectedText.replace(/^\s+|\s+$/g, "")
+      if (trimmedText && isCompleteHttpUrl(trimmedText)) {
+        var leading = selectedText.length - selectedText.replace(/^\s+/, "").length
+        var trailing = selectedText.length - selectedText.replace(/\s+$/, "").length
+        createLinkApplyCommand(link, state.selection.from + leading, state.selection.to - trailing, trimmedText)(state, view.dispatch)
+        view.focus()
+        return
+      }
     }
 
     // 无链接上下文时，新建链接：空选区插入 href 文本，非空选区对选区应用 mark

@@ -567,6 +567,15 @@ function splitIntoRawBlockSegments(markdown: string): RawBlockSegment[] {
 var RAW_INLINE_PATTERN_SOURCE =
   "\\[\\^[^\\]]+\\]|\\$\\$[^\\n]+?\\$\\$|\\$(?!\\$)[^\\n]+?\\$(?!\\$)|<svg\\b[\\s\\S]*?<\\/svg>"
 
+// 粘贴判定用：文本是否含 SVG 标记（<svg … </svg>，允许内部换行）。
+// 供粘贴插件识别“需要走 markdown 解析管线”的剪贴板内容——否则单行 svg
+// 不满足大段源码判定，会被默认粘贴当作纯文本字面插入，无法渲染成预览。
+var RAW_SVG_MARKUP_PATTERN = /<svg\b[\s\S]*?<\/svg>/i
+
+export function hasRawSvgMarkup(text: string): boolean {
+  return RAW_SVG_MARKUP_PATTERN.test(String(text == null ? "" : text))
+}
+
 function createRawInlinePattern(): RegExp {
   // 局部正则：共享 /g 正则的 lastIndex 在嵌套调用（splitHtmlInlineTags 递归内
   // 调 splitRawInlineText）中会被重置，引发外层循环重复匹配，须每次新建。
