@@ -1,5 +1,5 @@
 import { Mark, Schema, Slice } from "prosemirror-model"
-import { EditorState, Plugin, TextSelection } from "prosemirror-state"
+import { EditorState, Plugin, Selection, TextSelection } from "prosemirror-state"
 import { Decoration, DecorationSet, EditorView } from "prosemirror-view"
 import { MarkdownParser } from "prosemirror-markdown"
 import { baseKeymap, chainCommands, createParagraphNear, liftEmptyBlock, newlineInCode, splitBlock, toggleMark } from "prosemirror-commands"
@@ -337,6 +337,148 @@ export function createMarkdownPastePlugin(schema: Schema, markdownParser: Markdo
   })
 }
 
+
+
+// ===== 本地 markdown 文件拖入 =====
+
+// 拖入高亮类：dragover 期间挂在 view.dom 上，drop / dragleave 移除
+var FILE_DRAG_OVER_CLASS = "md-editor-file-drag-over"
+
+var MARKDOWN_FILE_EXTS = [".md", ".markdown", ".mdown", ".mkd"]
+
+function isMarkdownFile(file: File): boolean {
+  if (file.type === "text/markdown" || file.type === "text/x-markdown") {
+    return true
+  }
+  var lower = file.name.toLowerCase()
+  for (var i = 0; i < MARKDOWN_FILE_EXTS.length; i += 1) {
+    if (lower.slice(-MARKDOWN_FILE_EXTS[i].length) === MARKDOWN_FILE_EXTS[i]) {
+      return true
+    }
+  }
+  return false
+}
+
+// dataTransfer.types 含 "Files" 才是文件拖动（PM 内部节点拖动不含此类型）
+function dragHasFiles(event: DragEvent): boolean {
+  var dataTransfer = event.dataTransfer
+  if (!dataTransfer) {
+    return false
+  }
+  var types = dataTransfer.types
+  for (var i = 0; i < types.length; i += 1) {
+    if (types[i] === "Files") {
+      return true
+    }
+  }
+  return false
+}
+
+function readTextFile(file: File): Promise<string> {
+  return new Promise(function (resolve, reject) {
+    var reader = new FileReader()
+    reader.onload = function () {
+      resolve(String(reader.result || ""))
+    }
+    reader.onerror = function () {
+      reject(reader.error || new Error("read file failed"))
+    }
+    reader.readAsText(file)
+  })
+}
+
+// 本地 md 文件拖入编辑器：
+// - dragover（带文件）preventDefault 允许 drop，并给 view.dom 挂高亮类
+// - drop 时读取所有 .md 类文件，合并后走 markdown 解析管线整体替换原文档（等效"打开该文件"）
+export function createMarkdownFileDropPlugin(schema: Schema, markdownParser: MarkdownParser): Plugin {
+  function insertDroppedMarkdown(view: EditorView, text: string) {
+    var trimmed = text.replace(/^\s+|\s+$/g, "")
+    if (!trimmed) {
+      return
+    }
+    var doc
+    try {
+      doc = parseMarkdown(schema, markdownParser, trimmed)
+    } catch (error) {
+      return
+    }
+    if (!doc || !doc.content.size) {
+      return
+    }
+    var state = view.state
+    var tr = state.tr
+    // 拖入文件等效"打开该文件"：无论原文档是否为空，整体替换
+    tr.replaceWith(0, state.doc.content.size, doc.content)
+    // Selection.near 兜底：文档以列表/代码块等非内联节点结尾时，文末位置不合法
+    tr.setSelection(Selection.near(tr.doc.resolve(tr.doc.content.size), -1))
+    view.dispatch(tr.scrollIntoView())
+  }
+
+  function clearDragOverClass(view: EditorView) {
+    view.dom.classList.remove(FILE_DRAG_OVER_CLASS)
+  }
+
+  return new Plugin({
+    props: {
+      handleDOMEvents: {
+        dragover: function (view: EditorView, event: DragEvent) {
+          if (!dragHasFiles(event)) {
+            return false
+          }
+          // 必须 preventDefault 浏览器才允许 drop（否则显示禁止光标并导航打开文件）
+          event.preventDefault()
+          view.dom.classList.add(FILE_DRAG_OVER_CLASS)
+          return false
+        },
+        dragleave: function (view: EditorView, event: DragEvent) {
+          var related = event.relatedTarget
+          if (!related || !view.dom.contains(related as Node)) {
+            clearDragOverClass(view)
+          }
+          return false
+        },
+        drop: function (view: EditorView) {
+          clearDragOverClass(view)
+          return false
+        }
+      },
+      handleDrop: function (view: EditorView, event: DragEvent) {
+        var dataTransfer = event.dataTransfer
+        if (!dataTransfer || !dataTransfer.files || dataTransfer.files.length === 0) {
+          return false
+        }
+        var mdFiles: File[] = []
+        for (var i = 0; i < dataTransfer.files.length; i += 1) {
+          if (isMarkdownFile(dataTransfer.files[i])) {
+            mdFiles.push(dataTransfer.files[i])
+          }
+        }
+        if (mdFiles.length === 0) {
+          return false
+        }
+        event.preventDefault()
+        Promise.all(mdFiles.map(readTextFile)).then(
+          function (texts) {
+            // FileReader 异步窗口内编辑器可能已卸载
+            if (!view.dom.isConnected) {
+              return
+            }
+            insertDroppedMarkdown(view, texts.join("\n\n"))
+          },
+          function () {
+            // 读取失败（权限/编码异常）静默放弃，保持原文档
+          }
+        )
+        return true
+      }
+    }
+  })
+}
+
+// lorem 占位文本：段首输入 "lorem " 时展开为这段文本
+var LOREM_PLACEHOLDER_TEXT =
+  "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce est sem, ornare vitae mauris sed, faucibus tempor mi. Nullam at lobortis lacus. Quisque euismod, enim a eleifend egestas, magna ex lobortis sem, eu convallis felis justo vitae turpis. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Sed eget arcu ex. Aenean nec metus odio. Vestibulum congue augue ex, non vulputate dolor egestas ac."
+
 export function buildPlugins(schema: Schema, options?: MDWriterInitOptions): Plugin[] {
   var opts: Partial<MDWriterInitOptions> = options || {}
   var listItem = schema.nodes.list_item
@@ -423,6 +565,17 @@ export function buildPlugins(schema: Schema, options?: MDWriterInitOptions): Plu
   }
   if (schema.nodes.blockquote) {
     inputRuleList.push(wrappingInputRule(/^>\s$/, schema.nodes.blockquote))
+  }
+  // lorem 占位文本：段首输入 "lorem " 展开为整段 Lorem ipsum 文本
+  // （锚定段首，避免正文中出现真实单词 lorem 时误触发）
+  if (schema.nodes.paragraph) {
+    inputRuleList.push(new InputRule(/^lorem\s$/, function (state, match, start, end) {
+      var $start = state.doc.resolve(start)
+      if ($start.parent.type !== schema.nodes.paragraph) {
+        return null
+      }
+      return state.tr.delete(start, end).insertText(LOREM_PLACEHOLDER_TEXT, start)
+    }))
   }
 
   var hardBreakType = schema.nodes.hard_break

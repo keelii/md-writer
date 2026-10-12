@@ -5,3 +5,9 @@
   float: left;
   height: 0;
 }
+
+/* 本地 md 文件拖入编辑器：dragover 期间编辑区虚线描边提示可放置 */
+.ProseMirror.md-editor-file-drag-over {
+  outline: 2px dashed #6366f1;
+  outline-offset: -2px;
+}

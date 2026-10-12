@@ -5,7 +5,7 @@ import { MDWriterInitOptions, MDWriterInstance } from "./types"
 import { resolveElement, setElementVisible, addClass, removeClass, toggleClass, isString, isFunction } from "./utils"
 import { buildSchema } from "./prosemirror/schema"
 import { buildMarkdownParser, buildMarkdownSerializer, parseMarkdown } from "./prosemirror/markdown"
-import { buildPlugins, createMarkdownPastePlugin } from "./prosemirror/plugins"
+import { buildPlugins, createMarkdownPastePlugin, createMarkdownFileDropPlugin } from "./prosemirror/plugins"
 import { renderCommandButtons, bindCommandButtons, renderViewButtons, bindViewButtons } from "./prosemirror/buttons"
 import { isMermaidCodeBlock, getRawBlockKind } from "./prosemirror/nodeviews/kinds"
 import { createCodeBlockCopyNodeView } from "./prosemirror/nodeviews/content/code-block-copy"
@@ -27,6 +27,7 @@ import {
   readStoredState,
   writeStoredState
 } from "./storage"
+import { createMarkdownFileSaver } from "./save-file"
 import { h } from "./jsx"
 
 // @ts-ignore
@@ -106,6 +107,8 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
   var plugins = buildPlugins(schema, opts)
   // markdown 粘贴插件置于最前，保证 handlePaste 优先于默认行为
   plugins.unshift(createMarkdownPastePlugin(schema, markdownParser))
+  // 本地 md 文件拖入插件：drop 落点走 markdown 解析管线，置于最前接管文件拖放
+  plugins.unshift(createMarkdownFileDropPlugin(schema, markdownParser))
   // 表格行列坐标（tr[data-row] / td[data-col]）：node 装饰由 PM 自身应用，
   // 直接 setAttribute 会触发 attribute mutation 重绘把手
   plugins.push(createTableCoordsPlugin())
@@ -516,6 +519,17 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
     tocRootElement = null
   })
 
+  // Meta+S 保存到本地文件：首次另存为（showSaveFilePicker），后续覆盖写缓存 handle，
+  // 不支持 File System Access API 的浏览器降级为下载。save 永不 reject。
+  // 源码态保存取 CodeMirror 当前值，所见态保存取 serializer 序列化结果。
+  var fileSaver = createMarkdownFileSaver()
+  function saveCurrentDocument() {
+    var markdown = isSourceModeActive() && sourceEditor
+      ? sourceEditor.getValue()
+      : serializer.serialize(view.state.doc)
+    fileSaver.save(markdown)
+  }
+
   var onGlobalKeydown = function (event: KeyboardEvent) {
     if (event.defaultPrevented) {
       return
@@ -523,7 +537,8 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
     if (!event.metaKey || event.ctrlKey || event.altKey) {
       return
     }
-    if (event.key.toLowerCase() !== "e") {
+    var key = event.key.toLowerCase()
+    if (key !== "e" && key !== "s") {
       return
     }
     var activeElement = document.activeElement as Element | null
@@ -536,6 +551,10 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
       return
     }
     event.preventDefault()
+    if (key === "s") {
+      saveCurrentDocument()
+      return
+    }
     toggleSourceMode()
   }
   document.addEventListener("keydown", onGlobalKeydown, true)

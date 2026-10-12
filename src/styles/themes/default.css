@@ -6,9 +6,10 @@
 
 /* view.dom 与 .cm-editor 无自有语义类，需借助 .ProseMirror / .cm-editor 定位 */
 .theme-default>.ProseMirror,
-.theme-default>.cm-editor {
+.theme-default>.md-editor-source-host>.cm-editor {
   padding-top: var(--line-height);
   padding-bottom: var(--line-height);
+  min-height: calc(100vh - var(--line-height-2x));
 }
 .theme-default>.ProseMirror>.md-editor-code-block-wrap {
   margin-bottom: var(--line-height);
