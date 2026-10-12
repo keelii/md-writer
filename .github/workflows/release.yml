@@ -24,6 +24,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify esbuild binary
+        run: |
+          ls node_modules/@esbuild/ || echo "WARN: @esbuild 平台包目录不存在"
+          ./node_modules/.bin/esbuild --version
+
       - name: Build
         run: npm run build
 
