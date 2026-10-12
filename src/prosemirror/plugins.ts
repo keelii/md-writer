@@ -394,8 +394,9 @@ function readTextFile(file: File): Promise<string> {
 // - drop 落在页面其他位置：document 级 drop 监听读取文件，走同一插入管线
 // - 读取所有 .md 类文件，合并后走 markdown 解析管线整体替换原文档（等效"打开该文件"）
 export interface MarkdownFileDropOptions {
-  // 文档即将被拖入文件整体替换（dispatch 前）：用于重置保存基线与旧保存目标
-  onFileWillOpen?: () => void
+  // 文档即将被拖入文件整体替换（dispatch 前）：用于重置保存基线与旧保存目标；
+  // fileName 为首个 md 文件名（多文件合并时取第一个），供宿主切换 title 等显示
+  onFileWillOpen?: (fileName: string) => void
   // 拖入单个 md 文件且浏览器支持时（Chromium），在文档替换完成后回传源文件写入句柄，
   // 供 Meta+S 直接写回源文件；Safari/Firefox 不支持，不会触发
   onFileTarget?: (handle: any, fileName: string) => void
@@ -407,7 +408,8 @@ export function createMarkdownFileDropPlugin(
   options?: MarkdownFileDropOptions
 ): Plugin {
   // 返回是否完成文档替换（空文本/解析失败返回 false，不触发任何回调）
-  function insertDroppedMarkdown(view: EditorView, text: string): boolean {
+  // fileName：首个 md 文件名，随 onFileWillOpen 透传给宿主（title 显示等）
+  function insertDroppedMarkdown(view: EditorView, text: string, fileName: string): boolean {
     var trimmed = text.replace(/^\s+|\s+$/g, "")
     if (!trimmed) {
       return false
@@ -424,7 +426,7 @@ export function createMarkdownFileDropPlugin(
     // 替换即将发生：通知宿主重置保存基线与旧保存目标（须在 dispatch 前，
     // 使随后的 sync 以新文档内容建立干净基线）
     if (options && options.onFileWillOpen) {
-      options.onFileWillOpen()
+      options.onFileWillOpen(fileName)
     }
     var state = view.state
     var tr = state.tr
@@ -506,7 +508,7 @@ export function createMarkdownFileDropPlugin(
           if (!view.dom.isConnected) {
             return
           }
-          var inserted = insertDroppedMarkdown(view, texts.join("\n\n"))
+          var inserted = insertDroppedMarkdown(view, texts.join("\n\n"), mdFiles[0].name)
           if (inserted && target && options && options.onFileTarget) {
             options.onFileTarget(target.handle, target.fileName)
           }

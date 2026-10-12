@@ -53,15 +53,7 @@
 .md-editor-block-op-menu.md-editor-block-menu-open .md-editor-block-op-menu-panel {
   display: block;
 }
-/* 窄屏（≤480px）：面板从右对齐改为相对内容区左对齐。
-   host（.md-editor-block-menu）有 margin-left:-3rem 的静态偏移（块左轨道），
-   以 left:3rem 补偿后面板左缘恰贴内容区左缘，右对齐在此宽度下面板会溢出视口。 */
-@media (max-width: 480px) {
-  .md-editor-block-op-menu-panel {
-    right: auto;
-    left: 2rem;
-  }
-}
+/* 窄屏面板左对齐规则已集中至 styles/small-screen.css（@media (max-width: 480px)） */
 .md-editor-block-op-menu-item {
   display: flex;
   align-items: center;

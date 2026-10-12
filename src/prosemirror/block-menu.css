@@ -19,12 +19,7 @@
   padding-right: 1rem;
   visibility: hidden;
 }
-@media (max-width: 480px) {
-  .md-editor-block-menu  {
-    margin-left: -2rem;
-    padding-right: 1rem;
-  }
-}
+/* 窄屏轨道收窄规则（-2rem）已集中至 styles/small-screen.css（@media (max-width: 480px)） */
 
 /* 锚在块内：菜单是来源块的子元素 */
 .md-editor-block-menu-source:hover > .md-editor-block-menu,

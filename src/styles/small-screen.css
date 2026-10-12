@@ -1,0 +1,87 @@
+/* 小屏（手机）适配样式集中维护：viewport 宽 ≤ 480px 时生效。
+   断点即下方 @media 查询本身（唯一维护点），无 JS 参与——
+   不再通过 matchMedia 给 <html> 挂 .md-screen-sm 类驱动。
+   原 layout.css / toolbar.css / block-menu.css / block-op-menu.css 中分散的
+   @media (max-width: 480px) 规则已全部收拢至此。 */
+
+@media (max-width: 480px) {
+  body {
+    --table-handler-size: 10px;
+    --table-handler-size-n: -10px;
+  }
+  /* 窄屏：编辑区左右保留 2em 边距，
+     为块级悬浮菜单（-2rem 负 margin 轨道）留出可点空间，同时与工具栏内容对齐。
+     排除 tooltip 内嵌的子编辑器：脚注 tooltip 里的 EditorView 也是 .ProseMirror，
+     小尺寸浮层不能被左右 padding 撑爆 */
+  .ProseMirror:not(.md-editor-tooltip .ProseMirror),
+  .md-editor-source-host,
+  .md-controls .inner {
+    padding-left: 2em;
+    padding-right: 2em;
+  }
+
+  /* 窄屏：工具栏收窄间距 */
+  .md-controls .left {
+    gap: 10px;
+  }
+  .md-controls .buttons {
+    gap: 2px;
+  }
+
+  /* 窄屏：更多操作命令组收进 ⋯ 下拉面板
+     （宽屏下 .md-editor-more-panel 为 display:contents 平铺、⋯ 按钮隐藏，见 toolbar.css） */
+  button.md-editor-more-toggle {
+    display: flex;
+  }
+  .md-editor-more-panel {
+    display: none;
+    position: absolute;
+    flex-direction: column;
+    align-items: stretch;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    padding: 4px;
+    border-radius: 4px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 30;
+  }
+  .md-editor-more-open .md-editor-more-panel {
+    display: flex;
+  }
+  .md-editor-more-panel .ui-icon-btn {
+    display: flex;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2rem;
+    border-radius: 4px;
+  }
+  .md-editor-more-panel .ui-icon-btn:hover {
+    background: rgba(0, 0, 0, 0.06);
+  }
+  .md-editor-more-panel .ui-icon-btn[hidden] {
+    display: none;
+  }
+  /* 源码模式下整组禁用，⋯ 按钮同步置灰（表外表格操作按钮已逐个 disabled） */
+  .md-editor-more-group.md-editor-more-disabled .md-editor-more-toggle {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
+  /* 窄屏：块级悬浮菜单轨道收窄（宽屏 -3rem，见 block-menu.css） */
+  .md-editor-block-menu {
+    margin-left: -2.5rem;
+    padding-right: 0;
+  }
+
+  /* 窄屏：块操作下拉面板从右对齐改为相对内容区左对齐。
+     host（.md-editor-block-menu）有 -2rem 的静态偏移（块左轨道），
+     以 left:2rem 补偿后面板左缘恰贴内容区左缘，右对齐在此宽度下面板会溢出视口。
+     （宽屏轨道为 -3rem，对应见 block-op-menu.css） */
+  .md-editor-block-op-menu-panel {
+    right: auto;
+    left: 2rem;
+  }
+}

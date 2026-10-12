@@ -12,6 +12,7 @@ import { createCodeBlockCopyNodeView } from "./prosemirror/nodeviews/content/cod
 import { createIframeRawBlockNodeView } from "./prosemirror/nodeviews/raw/iframe-block"
 import { createMermaidNodeView } from "./prosemirror/nodeviews/widgets/mermaid"
 import { createSvgBlockNodeView } from "./prosemirror/nodeviews/widgets/svg-block"
+import { createRawInlineSvgNodeView } from "./prosemirror/nodeviews/widgets/svg-inline"
 import { createMathRawBlockNodeView, createRawInlineMathNodeView } from "./prosemirror/nodeviews/widgets/formula"
 import { createFrontmatterRawBlockNodeView } from "./prosemirror/nodeviews/widgets/frontmatter"
 import { createFootnoteRawBlockNodeView, createFootnoteRefRawInlineNodeView } from "./prosemirror/nodeviews/widgets/footnote"
@@ -48,6 +49,8 @@ import "./styles/themes/classic.css"
 import "./styles/toc.css"
 // @ts-ignore
 import "./styles/print.css"
+// @ts-ignore
+import "./styles/small-screen.css"
 
 export function init(options?: MDWriterInitOptions): MDWriterInstance {
   var opts: MDWriterInitOptions = options || ({} as MDWriterInitOptions)
@@ -109,13 +112,15 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
   plugins.unshift(createMarkdownPastePlugin(schema, markdownParser))
   // 本地 md 文件拖入插件：响应整个页面（document）的文件拖放，
   // drop 落点走 markdown 解析管线，置于最前接管文件拖放。
-  // onFileWillOpen：文档即将被替换 → 重置旧保存目标、标记待建立新基线；
+  // onFileWillOpen：文档即将被替换 → 重置旧保存目标、标记待建立新基线、
+  //                 title 切换为拖入文件名；
   // onFileTarget：Chromium 下回传拖入源文件句柄 → Meta+S 直接写回源文件
   plugins.unshift(
     createMarkdownFileDropPlugin(schema, markdownParser, {
-      onFileWillOpen: function () {
+      onFileWillOpen: function (fileName: string) {
         pendingFileOpen = true
         fileSaver.reset()
+        setCleanTitle(fileName)
       },
       onFileTarget: function (handle: any, fileName: string) {
         fileSaver.setTarget(handle, fileName)
@@ -194,10 +199,20 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
 
   // —— 脏状态（未保存修改）跟踪：title 最前面的 * 前缀 ——
   // 基线 = 最近一次"初始化 / 拖入打开文件 / 保存成功"时的文档内容；
-  // 当前内容与基线不一致时，在 document.title 最前面加 *，一致时移除
-  var baseTitle = document.title.replace(/^\*\s?/, "")
+  // 当前内容与基线不一致时，在 document.title 最前面加 *，一致时移除。
+  // baseTitle 为当前干净态标题（拖入文件打开后切换为该文件名），originalTitle
+  // 固定为宿主页面初始 title，destroy 时恢复。
+  var originalTitle = document.title.replace(/^\*\s?/, "")
+  var baseTitle = originalTitle
   var savedBaseline: string | null = null
   var pendingFileOpen = false
+
+  // 拖入文件打开：干净态标题切换为文件名（调用时文档尚未替换，随后的
+  // sync 会以新内容重建基线并保持干净，title 即为该文件名）
+  function setCleanTitle(name: string) {
+    baseTitle = name
+    document.title = name
+  }
 
   function updateTitleDirty(dirty: boolean) {
     var title = document.title
@@ -398,11 +413,17 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
         }
       }
       if (opts.rawPreview) {
-        // Widget：行内公式（raw_inline $…$）与行内脚注引用（[^label]），无块级选中交互
+        // Widget：行内脚注引用（[^label]）、行内 SVG、行内公式（$…$），无块级选中交互
         nodeViews.raw_inline = function(node: PMNode, editorView: EditorView, getPos: () => number) {
           var footnoteRefView = createFootnoteRefRawInlineNodeView(node, editorView, getPos)
           if (footnoteRefView) {
             return footnoteRefView
+          }
+          // 行内 SVG（isSvgRawBlockText 锚定 ^<svg / </svg>$）优先于公式，
+          // 避免含 $ 的 svg 文本被公式 pattern 先吞掉
+          var svgInlineView = createRawInlineSvgNodeView(node)
+          if (svgInlineView) {
+            return svgInlineView
           }
           return createRawInlineMathNodeView(node, {opts: opts, view: editorView, getPos: getPos})
         }
@@ -619,7 +640,8 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
   lifecycleListeners.push(function () {
     document.removeEventListener("keydown", onGlobalKeydown, true)
     // destroy：清除 title 上的脏标记前缀，恢复宿主页面原始 title
-    document.title = baseTitle
+    // （baseTitle 拖入文件后已变，须用 originalTitle）
+    document.title = originalTitle
   })
 
   sync(state)

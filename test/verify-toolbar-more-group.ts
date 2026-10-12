@@ -5,7 +5,8 @@
 // 3. 面板内点命令按钮后收起；点击分组外（document pointerdown）收起；分组内按下不收起。
 // 4. bindCommandButtons.refresh：非表格光标分组不加禁用类（图片/列表/插入表格仍可用）、
 //    表格操作按钮逐个 disabled；源码模式下分组加 md-editor-more-disabled。
-// 5. dist/index.css 产物包含 .md-editor-more-panel、480px media query、5em 窄屏边距
+// 5. dist/index.css 产物包含 .md-editor-more-panel、@media (max-width: 480px) 窄屏规则
+//    （小屏适配集中至 styles/small-screen.css，纯 CSS media query 实现，无 JS 参与）
 //    与 tooltip 子编辑器的 :not 排除。
 import { readFileSync } from "fs"
 import { EditorState, TextSelection } from "prosemirror-state"
@@ -13,7 +14,11 @@ import { Node as PMNode } from "prosemirror-model"
 import { SvgIcon } from "../src/icons"
 import { buildSchema } from "../src/prosemirror/schema"
 import { buildMarkdownParser, parseMarkdown } from "../src/prosemirror/markdown"
-import { renderCommandButtons, bindCommandButtons } from "../src/prosemirror/buttons"
+
+// esbuild --define:APP_ENV 编译期宏：buttons.tsx 模块级读取 APP_ENV，
+// ts 直跑源码前须先以全局变量模拟 dev 构建，故 buttons 的导入放在注入之后（动态 import）
+;(globalThis as any).APP_ENV = "dev"
+var { renderCommandButtons, bindCommandButtons } = await import("../src/prosemirror/buttons")
 
 class FakeElement {
   tagName: string
@@ -412,8 +417,12 @@ try {
   assert(css.indexOf("button.md-editor-more-toggle") !== -1, "dist/index.css 宽屏隐藏 ⋯ 的规则带 button. 前缀（特异度需压过 .md-controls button）")
   assert(css.indexOf(".md-editor-more-open") !== -1, "dist/index.css 含 .md-editor-more-open")
   assert(css.indexOf(".md-editor-more-disabled") !== -1, "dist/index.css 含 .md-editor-more-disabled")
-  assert(css.indexOf("480px") !== -1, "dist/index.css 含 480px media query")
-  assert(css.indexOf("5em") !== -1, "dist/index.css 含 5em 窄屏 padding")
+  assert(/@media\s*\(max-width:\s*480px\)/.test(css),
+    "dist/index.css 含 480px 窄屏 media query（small-screen.css 收拢）")
+  assert(css.indexOf("button.md-editor-more-toggle") !== -1,
+    "dist/index.css 含窄屏 ⋯ 显示规则（media query 内同特异度、后置覆盖宽屏 display:none）")
+  assert(css.indexOf(".md-screen-sm") === -1, "dist/index.css 不含 .md-screen-sm 类前缀（已改纯 @media 实现）")
+  assert(css.indexOf("2em") !== -1, "dist/index.css 含 2em 窄屏 padding")
   assert(css.indexOf(".ProseMirror:not(.md-editor-tooltip .ProseMirror)") !== -1,
     "dist/index.css 窄屏规则排除 tooltip 子编辑器")
   assert(css.indexOf(".md-editor-table-group") === -1, "dist/index.css 不再含旧 .md-editor-table-group")

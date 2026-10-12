@@ -561,13 +561,25 @@ function splitIntoRawBlockSegments(markdown: string): RawBlockSegment[] {
   return segments
 }
 
+// 行内 raw 段识别的共享 pattern 源：脚注引用 [^label]、行内公式（$…$ / $$…$$）、行内 SVG。
+// svg 允许内部换行（[\s\S]）；行首的块级 <svg> 已由 splitIntoRawBlockSegments 提前
+// 拆为 raw_block，不会进入行内切分路径。<svg 后的 \b 避免 <svgx> 之类误命中。
+var RAW_INLINE_PATTERN_SOURCE =
+  "\\[\\^[^\\]]+\\]|\\$\\$[^\\n]+?\\$\\$|\\$(?!\\$)[^\\n]+?\\$(?!\\$)|<svg\\b[\\s\\S]*?<\\/svg>"
+
+function createRawInlinePattern(): RegExp {
+  // 局部正则：共享 /g 正则的 lastIndex 在嵌套调用（splitHtmlInlineTags 递归内
+  // 调 splitRawInlineText）中会被重置，引发外层循环重复匹配，须每次新建。
+  return new RegExp(RAW_INLINE_PATTERN_SOURCE, "g")
+}
+
 function splitRawInlineText(text: string): RawInlineSegment[] {
   var input = String(text == null ? "" : text)
   if (!input) {
     return [{kind: "text", text: ""}]
   }
 
-  var pattern = /\[\^[^\]]+\]|\$\$[^\n]+?\$\$|\$(?!\$)[^\n]+?\$(?!\$)/g
+  var pattern = createRawInlinePattern()
   var out: RawInlineSegment[] = []
   var last = 0
   var match
@@ -697,7 +709,7 @@ function protectRawInlinePlaceholders(text: string): { text: string; placeholder
     return {text: "", placeholders: []}
   }
 
-  var pattern = /\[\^[^\]]+\]|\$\$[^\n]+?\$\$|\$(?!\$)[^\n]+?\$(?!\$)/g
+  var pattern = createRawInlinePattern()
   var placeholders: RawInlinePlaceholder[] = []
   var out = ""
   var last = 0

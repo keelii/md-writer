@@ -224,8 +224,8 @@ async function part2DropCallbacks() {
 
   var order: string[] = []
   var plugin = createMarkdownFileDropPlugin(schema, parser, {
-    onFileWillOpen: function () {
-      order.push("willOpen")
+    onFileWillOpen: function (fileName: string) {
+      order.push("willOpen:" + fileName)
     },
     onFileTarget: function (handle: any, fileName: string) {
       order.push("target:" + fileName + ":" + handle.name)
@@ -300,7 +300,7 @@ async function part2DropCallbacks() {
   var view = recView("原文")
   var fileHandle = { name: "note.md", kind: "file" }
   var handled = await runDrop(view, dropEvent([mdFile("note.md", "# A\n")], [itemFor(mdFile("note.md", "# A\n"), fileHandle)]))
-  assert("2a 单文件+句柄：回调时序正确", order.join(",") === "willOpen,dispatch,target:note.md:note.md", order.join(","))
+  assert("2a 单文件+句柄：回调时序正确（willOpen 透传文件名）", order.join(",") === "willOpen:note.md,dispatch,target:note.md:note.md", order.join(","))
   assert("2b 文档被替换", handled === true && view.state.doc.textContent.indexOf("A") >= 0)
 
   // 2c. 目录句柄：不上报
@@ -308,13 +308,13 @@ async function part2DropCallbacks() {
   view = recView("原文")
   var dirFile = mdFile("dir.md", "# B\n")
   await runDrop(view, dropEvent([dirFile], [itemFor(dirFile, { name: "dir.md", kind: "directory" })]))
-  assert("2c 目录句柄不上报", order.join(",") === "willOpen,dispatch", order.join(","))
+  assert("2c 目录句柄不上报（willOpen 仍带文件名）", order.join(",") === "willOpen:dir.md,dispatch", order.join(","))
 
   // 2d. 句柄提取失败（promise reject）：不上报，但文档正常打开
   order = []
   view = recView("原文")
   await runDrop(view, dropEvent([mdFile("c.md", "# C\n")], [itemFor(mdFile("c.md", "# C\n"), "reject")]))
-  assert("2d 提取失败不上报", order.join(",") === "willOpen,dispatch", order.join(","))
+  assert("2d 提取失败不上报", order.join(",") === "willOpen:c.md,dispatch", order.join(","))
 
   // 2e. 多文件：不上报句柄
   order = []
@@ -322,14 +322,14 @@ async function part2DropCallbacks() {
   var f1 = mdFile("1.md", "# 一\n")
   var f2 = mdFile("2.md", "# 二\n")
   await runDrop(view, dropEvent([f1, f2], [itemFor(f1, { name: "1.md", kind: "file" }), itemFor(f2, { name: "2.md", kind: "file" })]))
-  assert("2e 多文件不上报句柄", order.join(",") === "willOpen,dispatch", order.join(","))
+  assert("2e 多文件不上报句柄（willOpen 取第一个文件名）", order.join(",") === "willOpen:1.md,dispatch", order.join(","))
   assert("2f 多文件合并插入", view.state.doc.textContent.indexOf("一") >= 0 && view.state.doc.textContent.indexOf("二") >= 0)
 
   // 2g. items 无 getAsFileSystemHandle（Safari/Firefox）：不上报
   order = []
   view = recView("原文")
   await runDrop(view, dropEvent([mdFile("s.md", "# S\n")], [itemFor(mdFile("s.md", "# S\n"), "none")]))
-  assert("2g 无 items API 不上报", order.join(",") === "willOpen,dispatch", order.join(","))
+  assert("2g 无 items API 不上报", order.join(",") === "willOpen:s.md,dispatch", order.join(","))
 
   // 2h. 读取失败：不触发任何回调，文档保持原状
   order = []
@@ -468,7 +468,7 @@ async function part3EndToEnd() {
     ]
   }
   win.document.dispatchEvent(dropEvent)
-  assert("3j-0 拖入后 title 重建干净基线", await waitFor(function () { return title() === baseTitle }), title())
+  assert("3j-0 拖入后 title 切换为文件名并重建干净基线", await waitFor(function () { return title() === "dropped.md" }), title())
   assert("3j 拖入内容已插入", editor.getMarkdown().indexOf("来自文件") >= 0, editor.getMarkdown())
 
   // 3k. 拖入后 Meta+S：直接写回源文件句柄，不弹 picker
@@ -478,7 +478,7 @@ async function part3EndToEnd() {
     return fakeHandle("不应使用.md")
   })
   pressMetaS()
-  assert("3k-0 写回源文件后 title 干净", await waitFor(function () { return title() === baseTitle }), title())
+  assert("3k-0 写回源文件后 title 干净（保持文件名）", await waitFor(function () { return title() === "dropped.md" }), title())
   assert(
     "3k 直接写回拖入源文件",
     dropHandle.writes.length === 1
@@ -487,11 +487,11 @@ async function part3EndToEnd() {
     JSON.stringify({ writes: dropHandle.writes, pickers: pickerCalls.length, before: pickersBefore3k })
   )
 
-  // 3l. destroy：恢复原始 title、移除 keydown 监听
+  // 3l. destroy：恢复宿主页面原始 title（而非拖入文件名）、移除 keydown 监听
   editor.setMarkdown("# 拖入的文档\n\n再改。")
-  assert("3l-0 destroy 前为脏", title() === "* " + baseTitle, title())
+  assert("3l-0 destroy 前为脏（* 前缀基于文件名）", title() === "* dropped.md", title())
   editor.destroy()
-  assert("3l destroy 恢复原始 title", title() === baseTitle, title())
+  assert("3l destroy 恢复原始 title（非文件名）", title() === baseTitle, title())
   clearPicker()
   pressMetaS()
   await sleep(20)

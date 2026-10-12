@@ -46,18 +46,7 @@ body {
   max-width: var(--max-content-width);
 }
 
-/* 窄屏（手机）：编辑区左右保留约 5em 边距，
-   为块级悬浮菜单（-3rem 负 margin 轨道）留出可点空间，同时与工具栏内容对齐。
-   排除 tooltip 内嵌的子编辑器：脚注 tooltip 里的 EditorView 也是 .ProseMirror，
-   小尺寸浮层不能被左右 padding 撑爆 */
-@media (max-width: 480px) {
-  .ProseMirror:not(.md-editor-tooltip .ProseMirror),
-  .md-editor-source-host,
-  .md-controls .inner {
-    padding-left: 2em;
-    padding-right: 2em;
-  }
-}
+/* 窄屏（手机）适配规则已集中至 styles/small-screen.css（@media (max-width: 480px)） */
 
 /* ProseMirror 编辑器容器 */
 .ProseMirror {

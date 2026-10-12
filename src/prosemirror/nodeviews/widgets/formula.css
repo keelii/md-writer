@@ -14,6 +14,15 @@
 .md-editor-raw-math-preview .katex-display {
   margin: 0;
 }
+/* 行内 SVG（svg-inline.tsx）：高度按字高量级封顶。
+   无 width/height 声明的 svg 默认 300x150，会撑爆行内排版；
+   max-height + width:auto 依 viewBox 比例缩放（替换元素固有比例规则） */
+.md-editor-raw-inline-svg svg {
+  max-height: 2em;
+  width: auto;
+  max-width: 100%;
+  vertical-align: text-bottom;
+}
 .md-editor-raw-inline-preview.md-editor-raw-inline-preview-error {
   color: #b91c1c;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
