@@ -82,8 +82,6 @@ export interface ViewButtonConfig {
   code: string;
   svg: string;
   shortcut?: string;
-  /** 仅开发环境（localhost / 127.0.0.1）渲染的调试按钮 */
-  devOnly?: boolean;
 }
 
 export type AssetPromiseMap = Partial<Record<string, Promise<void>>>;

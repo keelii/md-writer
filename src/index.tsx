@@ -107,7 +107,8 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
   var plugins = buildPlugins(schema, opts)
   // markdown 粘贴插件置于最前，保证 handlePaste 优先于默认行为
   plugins.unshift(createMarkdownPastePlugin(schema, markdownParser))
-  // 本地 md 文件拖入插件：drop 落点走 markdown 解析管线，置于最前接管文件拖放
+  // 本地 md 文件拖入插件：响应整个页面（document）的文件拖放，
+  // drop 落点走 markdown 解析管线，置于最前接管文件拖放
   plugins.unshift(createMarkdownFileDropPlugin(schema, markdownParser))
   // 表格行列坐标（tr[data-row] / td[data-col]）：node 装饰由 PM 自身应用，
   // 直接 setAttribute 会触发 attribute mutation 重绘把手

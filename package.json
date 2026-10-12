@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "./node_modules/.bin/esbuild src/index.tsx --bundle --format=iife --target=es2018 --global-name=MDWriter --outdir=dist --sourcemap --watch --jsx=transform --jsx-factory=h --jsx-fragment=Fragment",
-    "build": "rm -rf dist/* && ./node_modules/.bin/esbuild src/index.tsx --bundle --format=iife --target=es2018 --global-name=MDWriter --outdir=dist --minify --jsx=transform --jsx-factory=h --jsx-fragment=Fragment",
-    "build:meta": "./node_modules/.bin/esbuild src/index.tsx --bundle --format=iife --target=es2018 --global-name=MDWriter --outdir=dist --sourcemap --metafile=meta.json --jsx=transform --jsx-factory=h --jsx-fragment=Fragment"
+    "dev": "./node_modules/.bin/esbuild src/index.tsx --bundle --format=iife --target=es2018 --global-name=MDWriter --outdir=dist --sourcemap --watch --jsx=transform --jsx-factory=h --jsx-fragment=Fragment --define:APP_ENV=\\\"dev\\\"",
+    "build": "rm -rf dist/* && ./node_modules/.bin/esbuild src/index.tsx --bundle --format=iife --target=es2018 --global-name=MDWriter --outdir=dist --minify --jsx=transform --jsx-factory=h --jsx-fragment=Fragment --define:APP_ENV=\\\"prod\\\"",
+    "build:meta": "./node_modules/.bin/esbuild src/index.tsx --bundle --format=iife --target=es2018 --global-name=MDWriter --outdir=dist --sourcemap --metafile=meta.json --jsx=transform --jsx-factory=h --jsx-fragment=Fragment --define:APP_ENV=\\\"prod\\\""
   },
   "dependencies": {
     "@codemirror/commands": "^6.9.0",
@@ -25,6 +25,7 @@
     "prosemirror-view": "^1.42.6"
   },
   "devDependencies": {
-    "esbuild": "^0.25.0"
+    "esbuild": "^0.25.0",
+    "jsdom": "^22.1.0"
   }
 }

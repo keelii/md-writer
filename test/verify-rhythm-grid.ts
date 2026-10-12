@@ -105,9 +105,10 @@ var stubDocument = {
 ;(globalThis as any).window = {
   getComputedStyle: function () { return {} },
   addEventListener: function () {},
-  removeEventListener: function () {},
-  location: { hostname: "localhost" }
+  removeEventListener: function () {}
 }
+// esbuild --define:APP_ENV 编译期宏：ts 直跑源码时以全局变量模拟 dev 构建
+;(globalThis as any).APP_ENV = "dev"
 
 function click(el: FakeDomElement) {
   var handlers = el.listeners["click"] || []
@@ -182,23 +183,29 @@ async function main() {
   assert("after second refresh aria-pressed false", rhythmBtn.getAttribute("aria-pressed") === "false")
   assert("after second refresh not selected", !rhythmBtn.classSet.has("selected"))
 
-  // 5. devOnly：非 localhost 环境不渲染 toggle_rhythm，其余视图按钮不受影响
-  ;((globalThis as any).window as any).location = { hostname: "example.com" }
-  renderViewButtons(root)
-  var prodNames = root.children.map(function (el) {
+  // 5. prod 构建不渲染 toggle_rhythm，其余视图按钮不受影响：
+  //    模块级 APP_ENV 宏在加载时求值（esbuild --define 的运行时等价），
+  //    带查询串重新 import 以获得全新模块求值，模拟 prod 构建加载
+  ;(globalThis as any).APP_ENV = "prod"
+  const prodButtons = await import("../src/prosemirror/buttons?prod")
+  var prodRoot = new FakeDomElement("div")
+  prodButtons.renderViewButtons(prodRoot)
+  var prodNames = prodRoot.children.map(function (el) {
     return String(el.getAttribute("data-md-editor-view"))
   })
-  assert("non-localhost hides toggle_rhythm", prodNames.indexOf("toggle_rhythm") === -1)
-  assert("non-localhost keeps toggle_source", prodNames.indexOf("toggle_source") !== -1)
-  assert("non-localhost keeps show_help", prodNames.indexOf("show_help") !== -1)
+  assert("prod build hides toggle_rhythm", prodNames.indexOf("toggle_rhythm") === -1)
+  assert("prod build keeps toggle_source", prodNames.indexOf("toggle_source") !== -1)
+  assert("prod build keeps show_help", prodNames.indexOf("show_help") !== -1)
 
-  // 127.0.0.1 也算本地开发环境
-  ;((globalThis as any).window as any).location = { hostname: "127.0.0.1" }
-  renderViewButtons(root)
-  var loopbackNames = root.children.map(function (el) {
+  // 6. dev 构建渲染 toggle_rhythm（同样以全新模块求值验证）
+  ;(globalThis as any).APP_ENV = "dev"
+  const devButtons = await import("../src/prosemirror/buttons?dev")
+  var devRoot = new FakeDomElement("div")
+  devButtons.renderViewButtons(devRoot)
+  var devNames = devRoot.children.map(function (el) {
     return String(el.getAttribute("data-md-editor-view"))
   })
-  assert("127.0.0.1 shows toggle_rhythm", loopbackNames.indexOf("toggle_rhythm") !== -1)
+  assert("dev build shows toggle_rhythm", devNames.indexOf("toggle_rhythm") !== -1)
 
   if (failures > 0) {
     console.log("FAILED: " + failures)

@@ -1,9 +1,11 @@
-// 本地 md 文件拖入编辑器功能验证（createMarkdownFileDropPlugin）：
+// 本地 md 文件拖入功能验证（createMarkdownFileDropPlugin）：
 // - 拖入 .md/.markdown/.mdown/.mkd 文件：无论原文档是否为空，整体替换（等效"打开文件"）
 // - 拖入非 md 文件（.txt）：不接管（handleDrop 返回 false）
-// - dragover（带文件）：preventDefault + 挂高亮类；drop/dragleave：移除高亮类
-// - 多文件合并后整体替换
-// Node 18 无全局 FileReader，脚本内注入同步 stub。
+// - 响应范围是整个页面：document 级 dragover（带文件）preventDefault + 挂高亮类；
+//   dragleave 离开窗口移除高亮类；drop 落在编辑器外由 document 级监听接管，
+//   落在编辑器内由 handleDrop 接管（document 级跳过，避免双重插入）
+// - 多文件合并后整体替换；destroy 移除全部 document 监听
+// Node 18 无全局 FileReader / document，脚本内注入同步 stub。
 import { EditorState } from "prosemirror-state"
 import { Node as PMNode } from "prosemirror-model"
 import { buildSchema } from "../src/prosemirror/schema"
@@ -40,8 +42,8 @@ var schema = buildSchema()
 var parser = buildMarkdownParser(schema)
 var plugin = createMarkdownFileDropPlugin(schema, parser)
 var props: any = plugin.props
-if (typeof props.handleDrop !== "function" || !props.handleDOMEvents) {
-  throw new Error("no handleDrop / handleDOMEvents prop found")
+if (typeof props.handleDrop !== "function") {
+  throw new Error("no handleDrop prop found")
 }
 
 // fake 文件：name/type + __content 供 FileReader stub 读取
@@ -186,26 +188,84 @@ async function caseMultiFiles() {
   assert("6b 两个文件的 heading 均插入", headings.length === 2, headings.join("|"))
 }
 
-// 7. dragover 高亮类：带文件时 preventDefault + 加类；无文件时不处理
+// 7. document 级监听：响应范围是整个页面
 async function caseDragOverHighlight() {
+  // Node 环境无 document：注入 stub 捕获插件注册的监听器
+  var listeners: Record<string, Array<(e: any) => void>> = {}
+  ;(globalThis as any).document = {
+    addEventListener: function (type: string, fn: any) {
+      ;(listeners[type] = listeners[type] || []).push(fn)
+    },
+    removeEventListener: function (type: string, fn: any) {
+      var arr = listeners[type] || []
+      var idx = arr.indexOf(fn)
+      if (idx >= 0) {
+        arr.splice(idx, 1)
+      }
+    },
+    body: {
+      contains: function (node: any) {
+        return !!node && node.insidePage === true
+      }
+    }
+  }
+
   var view = fakeView("")
+  var pluginView: any = (plugin as any).spec.view(view)
+  assert("7a 注册了 document 级 dragover/dragleave/drop 监听", !!listeners.dragover && !!listeners.dragleave && !!listeners.drop)
+
   var withFiles = dropEvent([mdFile("a.md", "# A\n")])
-  props.handleDOMEvents.dragover(view, withFiles)
-  assert("7a dragover(带文件) preventDefault", withFiles.prevented() === true)
-  assert("7b 高亮类已挂载", view.dom.classList.contains("md-editor-file-drag-over") === true)
+  listeners.dragover[0](withFiles)
+  assert("7b dragover(带文件) preventDefault", withFiles.prevented() === true)
+  assert("7c 高亮类已挂载", view.dom.classList.contains("md-editor-file-drag-over") === true)
 
   var noFiles = dropEvent([])
-  props.handleDOMEvents.dragover(view, noFiles)
-  assert("7c dragover(无文件) 不 preventDefault", noFiles.prevented() === false)
+  listeners.dragover[0](noFiles)
+  assert("7d dragover(无文件) 不 preventDefault", noFiles.prevented() === false)
 
-  // drop DOM 事件移除高亮类
-  props.handleDOMEvents.drop(view, null)
-  assert("7d drop 后高亮类移除", view.dom.classList.contains("md-editor-file-drag-over") === false)
+  // dragleave 且 relatedTarget 在页面外（null）→ 移除类
+  listeners.dragleave[0]({ relatedTarget: null })
+  assert("7e dragleave(离开窗口) 移除高亮类", view.dom.classList.contains("md-editor-file-drag-over") === false)
 
-  // dragleave 且 relatedTarget 在编辑器外 → 移除类
-  props.handleDOMEvents.dragover(view, withFiles)
-  props.handleDOMEvents.dragleave(view, { relatedTarget: null })
-  assert("7e dragleave(离开编辑器) 移除高亮类", view.dom.classList.contains("md-editor-file-drag-over") === false)
+  // relatedTarget 在页面内（body.contains 为 true）→ 不清理
+  listeners.dragover[0](withFiles)
+  listeners.dragleave[0]({ relatedTarget: { insidePage: true } })
+  assert("7f dragleave(页面内移动) 不清理", view.dom.classList.contains("md-editor-file-drag-over") === true)
+  listeners.dragleave[0]({ relatedTarget: null })
+
+  // drop 落在编辑器外（target 不在 view.dom 内）→ document 级接管，整体替换文档
+  var outsideEvent = dropEvent([mdFile("note.md", "# 外部落点\n\n正文\n")])
+  listeners.drop[0](outsideEvent)
+  await new Promise(function (resolve) {
+    setTimeout(resolve, 0)
+  })
+  var names = topNodeNames(view.state)
+  assert("7g 编辑器外 drop 被 preventDefault", outsideEvent.prevented() === true)
+  assert("7h 编辑器外 drop 后高亮类移除", view.dom.classList.contains("md-editor-file-drag-over") === false)
+  assert("7i 编辑器外 drop 整体替换文档", names.join(",") === "heading,paragraph", names.join(","))
+
+  // drop 落在编辑器内（target 在 view.dom 内）→ document 级跳过，交由 handleDrop
+  var insideView = fakeView("")
+  insideView.dom.contains = function (target: any) {
+    return target === "editor-inside"
+  }
+  var insidePluginView: any = (plugin as any).spec.view(insideView)
+  var insideEvent = dropEvent([mdFile("in.md", "# 不应插入\n")])
+  insideEvent.target = "editor-inside"
+  listeners.drop[listeners.drop.length - 1](insideEvent)
+  await new Promise(function (resolve) {
+    setTimeout(resolve, 0)
+  })
+  assert("7j 编辑器内 drop 由 document 级跳过", insideView.state.doc.textContent === "")
+
+  // destroy：移除全部 document 监听 + 高亮类
+  pluginView.destroy()
+  insidePluginView.destroy()
+  assert(
+    "7k destroy 移除全部 document 监听",
+    listeners.dragover.length === 0 && listeners.dragleave.length === 0 && listeners.drop.length === 0
+  )
+  delete (globalThis as any).document
 }
 
 // 8. 编辑器卸载后异步回调不 dispatch

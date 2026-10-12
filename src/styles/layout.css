@@ -54,8 +54,8 @@ body {
   .ProseMirror:not(.md-editor-tooltip .ProseMirror),
   .md-editor-source-host,
   .md-controls .inner {
-    padding-left: 5em;
-    padding-right: 5em;
+    padding-left: 2em;
+    padding-right: 2em;
   }
 }
 

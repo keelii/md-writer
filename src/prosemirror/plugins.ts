@@ -387,9 +387,12 @@ function readTextFile(file: File): Promise<string> {
   })
 }
 
-// 本地 md 文件拖入编辑器：
-// - dragover（带文件）preventDefault 允许 drop，并给 view.dom 挂高亮类
-// - drop 时读取所有 .md 类文件，合并后走 markdown 解析管线整体替换原文档（等效"打开该文件"）
+// 本地 md 文件拖入：响应范围是整个页面（document），而非仅编辑区。
+// - document dragover（带文件）preventDefault 允许 drop，并给编辑区挂高亮类
+// - drop 落在编辑器内：由 props.handleDrop 在 view.dom 层接管（先于冒泡到 document），
+//   document 级 drop 监听跳过，避免双重插入
+// - drop 落在页面其他位置：document 级 drop 监听读取文件，走同一插入管线
+// - 读取所有 .md 类文件，合并后走 markdown 解析管线整体替换原文档（等效"打开该文件"）
 export function createMarkdownFileDropPlugin(schema: Schema, markdownParser: MarkdownParser): Plugin {
   function insertDroppedMarkdown(view: EditorView, text: string) {
     var trimmed = text.replace(/^\s+|\s+$/g, "")
@@ -414,61 +417,86 @@ export function createMarkdownFileDropPlugin(schema: Schema, markdownParser: Mar
     view.dispatch(tr.scrollIntoView())
   }
 
-  function clearDragOverClass(view: EditorView) {
-    view.dom.classList.remove(FILE_DRAG_OVER_CLASS)
+  // 从 drop 事件提取全部 md 类文件；无文件或不含 md 文件时返回 null
+  function readDroppedMarkdownFiles(event: DragEvent): File[] | null {
+    var dataTransfer = event.dataTransfer
+    if (!dataTransfer || !dataTransfer.files || dataTransfer.files.length === 0) {
+      return null
+    }
+    var mdFiles: File[] = []
+    for (var i = 0; i < dataTransfer.files.length; i += 1) {
+      if (isMarkdownFile(dataTransfer.files[i])) {
+        mdFiles.push(dataTransfer.files[i])
+      }
+    }
+    return mdFiles.length > 0 ? mdFiles : null
+  }
+
+  function dispatchDroppedFiles(view: EditorView, event: DragEvent, mdFiles: File[]) {
+    event.preventDefault()
+    Promise.all(mdFiles.map(readTextFile)).then(
+      function (texts) {
+        // FileReader 异步窗口内编辑器可能已卸载
+        if (!view.dom.isConnected) {
+          return
+        }
+        insertDroppedMarkdown(view, texts.join("\n\n"))
+      },
+      function () {
+        // 读取失败（权限/编码异常）静默放弃，保持原文档
+      }
+    )
   }
 
   return new Plugin({
-    props: {
-      handleDOMEvents: {
-        dragover: function (view: EditorView, event: DragEvent) {
-          if (!dragHasFiles(event)) {
-            return false
-          }
-          // 必须 preventDefault 浏览器才允许 drop（否则显示禁止光标并导航打开文件）
-          event.preventDefault()
-          view.dom.classList.add(FILE_DRAG_OVER_CLASS)
-          return false
-        },
-        dragleave: function (view: EditorView, event: DragEvent) {
-          var related = event.relatedTarget
-          if (!related || !view.dom.contains(related as Node)) {
-            clearDragOverClass(view)
-          }
-          return false
-        },
-        drop: function (view: EditorView) {
-          clearDragOverClass(view)
-          return false
+    // document 级监听随插件实例生命周期挂载/移除（view.destroy 时自动清理）
+    view: function (editorView: EditorView) {
+      function onDragOver(event: DragEvent) {
+        if (!dragHasFiles(event)) {
+          return
         }
-      },
-      handleDrop: function (view: EditorView, event: DragEvent) {
-        var dataTransfer = event.dataTransfer
-        if (!dataTransfer || !dataTransfer.files || dataTransfer.files.length === 0) {
-          return false
-        }
-        var mdFiles: File[] = []
-        for (var i = 0; i < dataTransfer.files.length; i += 1) {
-          if (isMarkdownFile(dataTransfer.files[i])) {
-            mdFiles.push(dataTransfer.files[i])
-          }
-        }
-        if (mdFiles.length === 0) {
-          return false
-        }
+        // 必须 preventDefault 浏览器才允许 drop（否则显示禁止光标并导航打开文件）
         event.preventDefault()
-        Promise.all(mdFiles.map(readTextFile)).then(
-          function (texts) {
-            // FileReader 异步窗口内编辑器可能已卸载
-            if (!view.dom.isConnected) {
-              return
-            }
-            insertDroppedMarkdown(view, texts.join("\n\n"))
-          },
-          function () {
-            // 读取失败（权限/编码异常）静默放弃，保持原文档
-          }
-        )
+        editorView.dom.classList.add(FILE_DRAG_OVER_CLASS)
+      }
+      function onDragLeave(event: DragEvent) {
+        // relatedTarget 为空 = 拖出窗口；在页面元素间移动时不清理
+        var related = event.relatedTarget
+        if (!related || !document.body.contains(related as Node)) {
+          editorView.dom.classList.remove(FILE_DRAG_OVER_CLASS)
+        }
+      }
+      function onDocumentDrop(event: DragEvent) {
+        editorView.dom.classList.remove(FILE_DRAG_OVER_CLASS)
+        // 落点在编辑器内：由 props.handleDrop 接管，此处跳过避免双重插入
+        if (editorView.dom.contains(event.target as Node)) {
+          return
+        }
+        var mdFiles = readDroppedMarkdownFiles(event)
+        if (!mdFiles) {
+          return
+        }
+        dispatchDroppedFiles(editorView, event, mdFiles)
+      }
+      document.addEventListener("dragover", onDragOver)
+      document.addEventListener("dragleave", onDragLeave)
+      document.addEventListener("drop", onDocumentDrop)
+      return {
+        destroy: function () {
+          document.removeEventListener("dragover", onDragOver)
+          document.removeEventListener("dragleave", onDragLeave)
+          document.removeEventListener("drop", onDocumentDrop)
+          editorView.dom.classList.remove(FILE_DRAG_OVER_CLASS)
+        }
+      }
+    },
+    props: {
+      handleDrop: function (view: EditorView, event: DragEvent) {
+        var mdFiles = readDroppedMarkdownFiles(event)
+        if (!mdFiles) {
+          return false
+        }
+        dispatchDroppedFiles(view, event, mdFiles)
         return true
       }
     }

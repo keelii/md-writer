@@ -132,16 +132,21 @@ const viewButtons: Record<string, ViewButtonConfig> = {
     code: "toggle_toc",
     svg: SvgIcon.squareText
   },
-  toggle_rhythm: {
-    name: "切换韵律网格",
-    code: "toggle_rhythm",
-    svg: SvgIcon.grid3x3,
-    devOnly: true
-  },
   show_help: {
     name: "快捷键帮助",
     code: "show_help",
     svg: SvgIcon.circleHelp
+  }
+}
+
+// devOnly 调试按钮：仅在 dev 构建（esbuild --define:APP_ENV="dev"）动态注册。
+// 宏直接内联在 if 条件中（不落中间变量），也不与运行时字段/过滤逻辑耦合——
+// prod 构建下条件为常量 false，整个语句块编译期即被消除，按钮定义完全不进产物。
+if (APP_ENV === "dev") {
+  viewButtons.toggle_rhythm = {
+    name: "切换韵律网格",
+    code: "toggle_rhythm",
+    svg: SvgIcon.grid3x3
   }
 }
 
@@ -432,11 +437,8 @@ export function bindViewButtons(
 }
 
 export function renderViewButtons(root: Element) {
-  // devOnly 调试按钮仅在本地开发环境（localhost / 127.0.0.1）渲染
-  var isLocalDev = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-  var keys = Object.keys(viewButtons).filter(function (key) {
-    return !viewButtons[key].devOnly || isLocalDev
-  })
+  // toggle_rhythm 由模块顶部 APP_ENV 宏 if 注册，prod 构建下不在表中
+  var keys = Object.keys(viewButtons)
   var buttons = keys.map(function (key) {
     var item = viewButtons[key]
     var title = buttonTitle(item.name, item.shortcut)
