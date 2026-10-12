@@ -5,8 +5,8 @@ import { commandByName, isCommandActive, normalizeCommandName } from "./commands
 import { actionByName } from "./actions"
 import { getTableContext } from "./table"
 import { SvgIcon } from "../icons"
-import { removeClass, toggleClass, isFunction } from "../utils"
-import { h } from "../jsx"
+import { removeClass, toggleClass, hasClass, isFunction } from "../utils"
+import { h, JSXChild } from "../jsx"
 import { openHelpDialog } from "./help-dialog"
 
 const commandButtons: Record<string, CommandButtonConfig> = {
@@ -135,7 +135,8 @@ const viewButtons: Record<string, ViewButtonConfig> = {
   toggle_rhythm: {
     name: "切换韵律网格",
     code: "toggle_rhythm",
-    svg: SvgIcon.grid3x3
+    svg: SvgIcon.grid3x3,
+    devOnly: true
   },
   show_help: {
     name: "快捷键帮助",
@@ -155,10 +156,15 @@ function buttonTitle(name: string, shortcut?: string) {
 
 export function renderCommandButtons(root: Element) {
   var keys = Object.keys(commandButtons)
-  var buttons = keys.map(function (key) {
+  // 窄屏收纳分界：图片上传（含）之后的命令收进「更多操作 ⋯」分组；
+  // 宽屏下面板平铺（CSS display:contents），≤480px 收进下拉面板
+  var collapsedFrom = keys.indexOf("image_upload")
+  var plainButtons: Array<JSXChild> = []
+  var collapsedButtons: Array<JSXChild> = []
+  keys.forEach(function (key, index) {
     var item = commandButtons[key]
     var title = buttonTitle(item.name, item.shortcut)
-    return (
+    var button = (
       <button
         type="button"
         className="ui-icon-btn"
@@ -171,8 +177,66 @@ export function renderCommandButtons(root: Element) {
         innerHTML={item.svg}
       />
     )
+    if (index >= collapsedFrom) {
+      collapsedButtons.push(button)
+    } else {
+      plainButtons.push(button)
+    }
   })
-  root.replaceChildren.apply(root, buttons)
+  var moreGroup = (
+    <span className="md-editor-more-group">
+      <button
+        type="button"
+        className="ui-icon-btn md-editor-more-toggle"
+        aria-label="更多操作"
+        title="更多操作"
+        aria-haspopup="true"
+        aria-expanded="false"
+        data-md-editor-more-toggle=""
+        innerHTML={SvgIcon.ellipsis}
+      />
+      <span className="md-editor-more-panel" role="group" aria-label="更多操作">
+        {collapsedButtons}
+      </span>
+    </span>
+  )
+  root.replaceChildren.apply(root, plainButtons.concat([moreGroup]) as Array<Node | string>)
+  bindMoreGroupToggle(root)
+}
+
+/* 更多操作分组 ⋯ 按钮的展开/收起：宽屏下按钮平铺，toggle 不渲染显示，此绑定无副作用 */
+function bindMoreGroupToggle(root: Element) {
+  var groupFound = root.querySelector(".md-editor-more-group")
+  var toggleFound = root.querySelector("[data-md-editor-more-toggle]")
+  if (!(groupFound instanceof Element) || !(toggleFound instanceof Element)) {
+    return
+  }
+  // narrowing 后再落到局部变量，避免闭包内类型收窄失效
+  var group: Element = groupFound
+  var toggle: Element = toggleFound
+  function setOpen(open: boolean) {
+    toggleClass(group, "md-editor-more-open", open)
+    toggle.setAttribute("aria-expanded", open ? "true" : "false")
+  }
+  toggle.addEventListener("click", function (e) {
+    e.preventDefault()
+    e.stopPropagation()
+    setOpen(!hasClass(group, "md-editor-more-open"))
+  })
+  // 面板内点命令按钮后收起（命令自身的 click 监听先于本委托触发，互不影响）
+  group.addEventListener("click", function (e) {
+    var target = e.target
+    if (target instanceof Element && target.closest("[data-md-editor-command]")) {
+      setOpen(false)
+    }
+  })
+  // 点击分组外任意位置收起
+  document.addEventListener("pointerdown", function (e) {
+    var target = e.target
+    if (target instanceof Node && !group.contains(target)) {
+      setOpen(false)
+    }
+  })
 }
 
 
@@ -257,6 +321,12 @@ export function bindCommandButtons(
     }
 
     var inTable = !!getTableContext(view.state)
+    // 同步「更多操作」分组禁用态：仅源码模式下 ⋯ 主按钮置灰——
+    // 分组里图片/列表/插入表格在表外仍可用，表格操作按钮已逐个 disabled
+    var moreGroup = root instanceof Element ? root.querySelector(".md-editor-more-group") : null
+    if (moreGroup) {
+      toggleClass(moreGroup, "md-editor-more-disabled", sourceMode)
+    }
     for (var bi = 0; bi < bindings.length; bi += 1) {
       var binding = bindings[bi]
       var commandName = String(binding.name || "").trim()
@@ -362,7 +432,11 @@ export function bindViewButtons(
 }
 
 export function renderViewButtons(root: Element) {
-  var keys = Object.keys(viewButtons)
+  // devOnly 调试按钮仅在本地开发环境（localhost / 127.0.0.1）渲染
+  var isLocalDev = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+  var keys = Object.keys(viewButtons).filter(function (key) {
+    return !viewButtons[key].devOnly || isLocalDev
+  })
   var buttons = keys.map(function (key) {
     var item = viewButtons[key]
     var title = buttonTitle(item.name, item.shortcut)

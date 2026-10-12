@@ -31,6 +31,12 @@ Object.defineProperty(globalThis, "navigator", { value: win.navigator, configura
 // CodeMirror 6 需要 rAF（pretendToBeVisual 提供，但 Node 全局没有）
 ;(globalThis as any).requestAnimationFrame = win.requestAnimationFrame.bind(win)
 ;(globalThis as any).cancelAnimationFrame = win.cancelAnimationFrame.bind(win)
+// jsdom 不提供 ResizeObserver（image-rhythm.tsx 用裸标识符探测）
+;(globalThis as any).ResizeObserver = class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
 ;(win.HTMLElement.prototype as any).scrollIntoView = function () {}
 ;(win as any).Element.prototype.getClientRects = function () {
   return [this.getBoundingClientRect()]

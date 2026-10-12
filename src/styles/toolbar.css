@@ -35,3 +35,65 @@
   align-items: center;
   gap: 6px;
 }
+
+/* 更多操作分组（图片/列表/表格命令）：宽屏下面板按钮平铺
+   （display:contents 不参与布局），⋯ 按钮隐藏；窄屏下收进 ⋯ 下拉（见 media query） */
+.md-editor-more-group {
+  display: flex;
+  align-items: center;
+}
+.md-editor-more-panel {
+  display: contents;
+}
+button.md-editor-more-toggle {
+  display: none;
+}
+
+/* 窄屏（手机）：工具栏收窄间距，更多操作命令组收进 ⋯ 下拉面板 */
+@media (max-width: 480px) {
+  .md-controls .left {
+    gap: 10px;
+  }
+  .md-controls .buttons {
+    gap: 2px;
+  }
+  button.md-editor-more-toggle {
+    display: flex;
+  }
+  .md-editor-more-panel {
+    display: none;
+    position: absolute;
+    flex-direction: column;
+    align-items: stretch;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    padding: 4px;
+    border-radius: 4px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 30;
+  }
+  .md-editor-more-open .md-editor-more-panel {
+    display: flex;
+  }
+  .md-editor-more-panel .ui-icon-btn {
+    display: flex;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2rem;
+    border-radius: 4px;
+  }
+  .md-editor-more-panel .ui-icon-btn:hover {
+    background: rgba(0, 0, 0, 0.06);
+  }
+  .md-editor-more-panel .ui-icon-btn[hidden] {
+    display: none;
+  }
+  /* 源码模式下整组禁用，⋯ 按钮同步置灰（表外表格操作按钮已逐个 disabled） */
+  .md-editor-more-group.md-editor-more-disabled .md-editor-more-toggle {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+}

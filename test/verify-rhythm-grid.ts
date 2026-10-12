@@ -105,7 +105,8 @@ var stubDocument = {
 ;(globalThis as any).window = {
   getComputedStyle: function () { return {} },
   addEventListener: function () {},
-  removeEventListener: function () {}
+  removeEventListener: function () {},
+  location: { hostname: "localhost" }
 }
 
 function click(el: FakeDomElement) {
@@ -180,6 +181,24 @@ async function main() {
   controls.refresh()
   assert("after second refresh aria-pressed false", rhythmBtn.getAttribute("aria-pressed") === "false")
   assert("after second refresh not selected", !rhythmBtn.classSet.has("selected"))
+
+  // 5. devOnly：非 localhost 环境不渲染 toggle_rhythm，其余视图按钮不受影响
+  ;((globalThis as any).window as any).location = { hostname: "example.com" }
+  renderViewButtons(root)
+  var prodNames = root.children.map(function (el) {
+    return String(el.getAttribute("data-md-editor-view"))
+  })
+  assert("non-localhost hides toggle_rhythm", prodNames.indexOf("toggle_rhythm") === -1)
+  assert("non-localhost keeps toggle_source", prodNames.indexOf("toggle_source") !== -1)
+  assert("non-localhost keeps show_help", prodNames.indexOf("show_help") !== -1)
+
+  // 127.0.0.1 也算本地开发环境
+  ;((globalThis as any).window as any).location = { hostname: "127.0.0.1" }
+  renderViewButtons(root)
+  var loopbackNames = root.children.map(function (el) {
+    return String(el.getAttribute("data-md-editor-view"))
+  })
+  assert("127.0.0.1 shows toggle_rhythm", loopbackNames.indexOf("toggle_rhythm") !== -1)
 
   if (failures > 0) {
     console.log("FAILED: " + failures)
