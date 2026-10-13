@@ -27,7 +27,7 @@ export function createCodeMirrorSourceEditor(
   })
 
   var state = EditorState.create({
-    doc: String(initialValue == null ? "" : initialValue),
+    doc: initialValue,
     extensions: [
       drawSelection(),
       history(),

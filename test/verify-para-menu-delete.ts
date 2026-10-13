@@ -173,12 +173,12 @@ function buildMenuFor(markdown: string, registrationKind: "paragraph" | "heading
 
 // 1. 文档仅剩一个段落：无删除按钮，主按钮仍在
 var single = buildMenuFor("唯一段落", "paragraph")
-check("single paragraph: no delete button", !!findButtonByTitle(single.menuDom, "删除"), false)
+check("single paragraph: no delete button", !!findButtonByTitle(single.menuDom, "删除段落"), false)
 check("single paragraph: toggle button still present", !!findButtonByTitle(single.menuDom, "段落操作"), true)
 
 // 2. 多个顶层块：删除按钮在，点击整块删除
 var multi = buildMenuFor("第一段\n\n第二段", "paragraph")
-var multiDelete = findButtonByTitle(multi.menuDom, "删除")
+var multiDelete = findButtonByTitle(multi.menuDom, "删除段落")
 check("two paragraphs: delete button present", !!multiDelete, true)
 if (multiDelete) {
   clickButton(multiDelete)
@@ -187,11 +187,11 @@ if (multiDelete) {
 
 // 段落 + 标题混排：段落菜单仍有删除
 var mixed = buildMenuFor("# 标题\n\n正文", "paragraph")
-check("paragraph with heading: delete button present", !!findButtonByTitle(mixed.menuDom, "删除"), true)
+check("paragraph with heading: delete button present", !!findButtonByTitle(mixed.menuDom, "删除段落"), true)
 
 // 3. 仅剩一个标题：标题菜单保留删除按钮（行为不变）
 var singleHeading = buildMenuFor("# 唯一标题", "heading")
-check("single heading: delete button still present", !!findButtonByTitle(singleHeading.menuDom, "删除"), true)
+check("single heading: delete button still present", !!findButtonByTitle(singleHeading.menuDom, "删除标题"), true)
 
 // 4. view 未挂载（null）：按 ctx.doc 快照判断，不依赖 view
 //（首次构建 widget 时 viewRef 尚为 null，见 block-menu.ts 注释）
@@ -208,9 +208,9 @@ if (!multiDoc) {
   throw new Error("parse failed for multi doc")
 }
 var nullViewMulti = paraRegistration.buildMenu({ node: multiDoc.firstChild!, pos: 0, doc: multiDoc, view: null }) as unknown as FakeElement
-check("view not mounted, multi-block doc: delete button present", !!findButtonByTitle(nullViewMulti, "删除"), true)
+check("view not mounted, multi-block doc: delete button present", !!findButtonByTitle(nullViewMulti, "删除段落"), true)
 var nullViewSingle = paraRegistration.buildMenu({ node: doc.firstChild!, pos: 0, doc: doc, view: null }) as unknown as FakeElement
-check("view not mounted, single-block doc: no delete button", !!findButtonByTitle(nullViewSingle, "删除"), false)
+check("view not mounted, single-block doc: no delete button", !!findButtonByTitle(nullViewSingle, "删除段落"), false)
 
 if (failures > 0) {
   console.log("FAILED: " + failures)

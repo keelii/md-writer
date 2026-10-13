@@ -237,26 +237,36 @@ function hasSvgRawInline(state: EditorState) {
   assert("plain text without svg still ignored", r16.handled === false)
 }
 
-// 17. SVG 粘贴到 heading 文字中间 → 行内 raw_inline，heading 不劈开、层级保留
+// 17. SVG 粘贴到 heading 文字中间 → 不处理（heading 不允许 svg，交回默认字面文本粘贴）
 {
   // doc: heading("带图标标题")，内容起始于 pos 1，光标落在"带"之后（pos 2）
   var r17 = paste(stateWithCursor("# 带图标标题", 2), SVG_SRC)
-  assert("svg paste mid-heading handled", r17.handled === true)
-  assert("svg mid-heading renders as raw_inline", hasSvgRawInline(r17.state))
+  assert("svg paste mid-heading not handled", r17.handled === false)
+  assert("no svg rendered in heading", !hasSvgRawInline(r17.state))
   var names17 = topNodeNames(r17.state)
-  assert("heading not split by inline svg", names17.length === 1 && names17[0] === "heading", JSON.stringify(names17))
+  assert("heading untouched by mid-heading svg paste", names17.length === 1 && names17[0] === "heading", JSON.stringify(names17))
   assert("heading level preserved", findHeadingLevels(r17.state).indexOf(1) !== -1)
-  // 行内 svg 插入后 textContent 中 svg 源码夹在前后文本之间，需分段断言
-  assert("heading text preserved",
-    r17.state.doc.textContent.indexOf("带") === 0 && r17.state.doc.textContent.indexOf("图标标题") !== -1)
 }
 
-// 18. SVG 粘贴到 heading 行首（光标 pos 1）→ 块级 raw_block
+// 18. SVG 粘贴到 heading 行首（光标 pos 1）→ 块级 raw_block 落在标题外，标题保留
 {
   var r18 = paste(stateWithCursor("# 行首图标标题", 1), SVG_SRC)
   assert("svg paste at heading start handled", r18.handled === true)
   var names18 = topNodeNames(r18.state)
   assert("svg at heading start renders as raw_block", names18.indexOf("raw_block") !== -1, JSON.stringify(names18))
+  assert("heading text preserved at start paste", r18.state.doc.textContent.indexOf("行首图标标题") !== -1)
+}
+
+// 18b. SVG 粘贴到 heading 行尾 → 块级 raw_block 落在标题之后，标题不劈开、无行内 svg
+{
+  // doc: heading("带图标标题")，内容 pos 1..6，光标在行尾 pos 6
+  var r18b = paste(stateWithCursor("# 带图标标题", 6), SVG_SRC)
+  assert("svg paste at heading end handled", r18b.handled === true)
+  var names18b = topNodeNames(r18b.state)
+  assert("svg at heading end renders as raw_block", names18b.indexOf("raw_block") !== -1, JSON.stringify(names18b))
+  assert("heading not split at end paste", names18b[0] === "heading" && names18b.indexOf("heading", 1) === -1, JSON.stringify(names18b))
+  assert("no inline svg inside heading", !hasSvgRawInline(r18b.state))
+  assert("heading text preserved at end paste", r18b.state.doc.textContent.indexOf("带图标标题") !== -1)
 }
 
 // ---- 表格单元格内 SVG 粘贴（cell content 只收 inline，一律行内插入）----
@@ -365,6 +375,26 @@ function countSvgRawInline(state: EditorState): number {
   assert("consecutive svg both inline", countSvgRawInline(r23.state) === 2, "count=" + countSvgRawInline(r23.state))
   var names23 = topNodeNames(r23.state)
   assert("paragraph not split by consecutive svg", names23.length === 1 && names23[0] === "paragraph", JSON.stringify(names23))
+}
+
+// 24. md 源码解析：heading 内 svg → 降级为字面文本，不抛错、不产生 raw_inline
+{
+  var md24 = "# 带图标 " + SVG_SRC + " 标题"
+  var doc24 = parseMarkdown(schema, parser, md24)
+  var state24 = EditorState.create({ schema: schema, doc: doc24 })
+  var names24 = topNodeNames(state24)
+  assert("heading svg in source degrades to single heading", names24.length === 1 && names24[0] === "heading", JSON.stringify(names24))
+  assert("heading svg stays literal text", state24.doc.textContent.indexOf("<svg") !== -1)
+  assert("no raw_inline in heading from source", !hasSvgRawInline(state24))
+}
+
+// 25. md 源码解析：heading 内 $$ 公式 / 脚注引用 → 同样降级为字面文本，不抛错
+{
+  var doc25 = parseMarkdown(schema, parser, "# 公式 $$x^2$$ 与脚注[^1] 标题\n\n[^1]: 脚注内容")
+  var state25 = EditorState.create({ schema: schema, doc: doc25 })
+  var names25 = topNodeNames(state25)
+  assert("heading formula/footnote degrades to single heading", names25[0] === "heading", JSON.stringify(names25))
+  assert("heading keeps literal formula text", state25.doc.textContent.indexOf("$$x^2$$") !== -1)
 }
 
 if (failures) {

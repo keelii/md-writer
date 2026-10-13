@@ -113,7 +113,7 @@ export function createTableMenuRegistration(schema: Schema): BlockMenuRegistrati
         }
       }))
       items.push({
-        label: "删除",
+        label: "删除表格",
         icon: SvgIcon.trash,
         showLabel: true,
         run: function () {

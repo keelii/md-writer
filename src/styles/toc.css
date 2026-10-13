@@ -1,5 +1,6 @@
 .md-editor-toc {
   position: fixed;
+  z-index: 100;
   box-sizing: border-box;
   top: calc(var(--line-height-2x) + 1px);
   left: 50%;

@@ -40,6 +40,24 @@ export function createSvgBlockNodeView(node: PMNode, ctx: NodeViewContext) {
   button.hidden = true
   installPreviewFullscreenEvents()
 
+  // 韵律取整需测量 offsetHeight，只有 DOM 挂载后才有布局：
+  // 首次 render() 发生在 nodeview 返回给 PM 之前（未挂载，高度恒 0），
+  // 挂载后（PM 同步插入 DOM，早于下一帧）再取整；有限次数重试，防永久空转。
+  function scheduleSnapToRhythm(retries: number) {
+    if (isPreviewFullscreen(dom)) {
+      return
+    }
+    if (diagram.isConnected && diagram.offsetHeight > 0) {
+      snapMinHeightToRhythm(diagram)
+      return
+    }
+    if (retries > 0) {
+      window.requestAnimationFrame(function () {
+        scheduleSnapToRhythm(retries - 1)
+      })
+    }
+  }
+
   function showError() {
     panZoomController.reset()
     setClass(diagram, "md-editor-preview-diagram md-editor-preview-error")
@@ -67,7 +85,7 @@ export function createSvgBlockNodeView(node: PMNode, ctx: NodeViewContext) {
     } else {
       panZoomController.disable()
       button.hidden = false
-      snapMinHeightToRhythm(diagram)
+      scheduleSnapToRhythm(10)
     }
   }
 

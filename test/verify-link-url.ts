@@ -11,7 +11,8 @@ import { EditorState, TextSelection } from "prosemirror-state"
 import { Node as PMNode } from "prosemirror-model"
 import { buildSchema } from "../src/prosemirror/schema"
 import { buildMarkdownParser, parseMarkdown } from "../src/prosemirror/markdown"
-import { isCompleteHttpUrl } from "../src/prosemirror/commands"
+import { isCompleteHttpUrl, createLinkEditCommand, createLinkApplyCommand } from "../src/prosemirror/commands"
+import { buildMarkdownSerializer } from "../src/prosemirror/markdown"
 import { actionByName } from "../src/prosemirror/actions"
 
 var failures = 0
@@ -174,6 +175,175 @@ console.log("--- 5. 已是链接的选区走编辑弹窗 ---")
     threw2 = true
   }
   assert("5a 链接 mark 选区进入编辑弹窗分支", threw2 === true)
+}
+
+// ---- 6. 悬停标题（title）：解析保留 / 序列化往返 / 编辑命令不抹掉 ----
+console.log("")
+console.log("--- 6. 链接 title 保留（编辑路径不展示但不得抹掉）---")
+{
+  // 6a markdown 带 title 解析进 mark attrs
+  var doc = parseMarkdown(schema, parser, '[参考](https://a.com "悬停标题")')
+  var linkMark: any = null
+  doc.descendants(function (node: PMNode) {
+    var link = node.marks.find(function (mark: any) { return mark.type.name === "link" })
+    if (link) {
+      linkMark = link
+    }
+    return !linkMark
+  })
+  assert("6a markdown title 解析进 mark attrs", linkMark && linkMark.attrs.title === "悬停标题", linkMark ? String(linkMark.attrs.title) : "no mark")
+
+  // 6b 序列化往返：title 还原为 [text](href "title")
+  var serialized = buildMarkdownSerializer(schema).serialize(doc)
+  assert("6b 序列化还原 title", serialized.indexOf('"悬停标题"') >= 0, serialized)
+
+  // 6c 编辑命令带新 title：mark attrs 更新且不抹掉
+  var docState = EditorState.create({ schema: schema, doc: doc })
+  // 段首链接文本 "参考" 位于 pos 1..3（findTextPos 会跳过带 mark 的文本，这里直接用固定位置）
+  var range = {from: 1, to: 3}
+  var editState = docState
+  var editCmd = createLinkEditCommand(schema.marks.link, range, "https://b.com", "新标题", "")
+  var dispatched: any = null
+  editCmd(editState, function (tr: any) { dispatched = tr })
+  assert("6c 编辑命令返回 true 且产生事务", !!dispatched)
+  if (dispatched) {
+    var edited = editState.apply(dispatched)
+    var editedMark: any = null
+    edited.doc.descendants(function (node: PMNode) {
+      var link = node.marks.find(function (mark: any) { return mark.type.name === "link" })
+      if (link) {
+        editedMark = link
+      }
+      return !editedMark
+    })
+    assert("6d 编辑后 href 更新", editedMark && editedMark.attrs.href === "https://b.com", editedMark ? String(editedMark.attrs.href) : "no mark")
+    assert("6e 编辑后保留传入 title", editedMark && editedMark.attrs.title === "新标题", editedMark ? String(editedMark.attrs.title) : "no mark")
+  }
+
+  // 6f title 传空串 → null（允许用户在弹窗里清空标题）
+  var clearCmd = createLinkEditCommand(schema.marks.link, range, "https://b.com", "", "")
+  var clearedTr: any = null
+  clearCmd(editState, function (tr: any) { clearedTr = tr })
+  if (clearedTr) {
+    var cleared = editState.apply(clearedTr)
+    var clearedMark: any = null
+    cleared.doc.descendants(function (node: PMNode) {
+      var link = node.marks.find(function (mark: any) { return mark.type.name === "link" })
+      if (link) {
+        clearedMark = link
+      }
+      return !clearedMark
+    })
+    assert("6f 空 title 序列化为 null（可清空）", clearedMark && clearedMark.attrs.title == null, clearedMark ? String(clearedMark.attrs.title) : "no mark")
+  }
+
+  // 6g 无 title 链接序列化不输出多余引号
+  var plainDoc = parseMarkdown(schema, parser, "[参考](https://a.com)")
+  var plainSerialized = buildMarkdownSerializer(schema).serialize(plainDoc)
+  assert("6g 无 title 序列化为裸地址", plainSerialized.indexOf("\"") < 0 && plainSerialized.indexOf("(https://a.com)") >= 0, plainSerialized)
+}
+
+// ---- 7. 链接文本：新建（空选区）时插入弹窗输入的文本，留空回退 href ----
+console.log("")
+console.log("--- 7. 新建链接文本 ---")
+{
+  // 空段落 doc，从 pos 1 插入
+  var emptyDoc = schema.nodes.doc.create(null, schema.nodes.paragraph.create())
+  var emptyState = EditorState.create({ schema: schema, doc: emptyDoc })
+  var applyCmd = createLinkApplyCommand(schema.marks.link, 1, 1, "https://a.com", "官方文档")
+  var applyTr: any = null
+  applyCmd(emptyState, function (tr: any) { applyTr = tr })
+  assert("7a 新建命令产生事务", !!applyTr)
+  if (applyTr) {
+    var applied = emptyState.apply(applyTr)
+    assert("7b 插入弹窗输入的链接文本", applied.doc.textContent === "官方文档", applied.doc.textContent)
+    var appliedMark: any = null
+    applied.doc.descendants(function (node: PMNode) {
+      var link = node.marks.find(function (mark: any) { return mark.type.name === "link" })
+      if (link) {
+        appliedMark = link
+      }
+      return !appliedMark
+    })
+    assert("7c 链接文本带 link mark", !!appliedMark && appliedMark.attrs.href === "https://a.com", appliedMark ? String(appliedMark.attrs.href) : "no mark")
+    assert("7d 序列化为 [文本](href)", buildMarkdownSerializer(schema).serialize(applied.doc) === "[官方文档](https://a.com)", buildMarkdownSerializer(schema).serialize(applied.doc))
+  }
+
+  // 7e 文本留空：以 href 为链接文本插入（既有行为回退）
+  var fallbackCmd = createLinkApplyCommand(schema.marks.link, 1, 1, "https://a.com", "")
+  var fallbackTr: any = null
+  fallbackCmd(emptyState, function (tr: any) { fallbackTr = tr })
+  if (fallbackTr) {
+    var fallback = emptyState.apply(fallbackTr)
+    assert("7e 留空以地址为链接文本", fallback.doc.textContent === "https://a.com", fallback.doc.textContent)
+  }
+
+  // 7f 有选区：text 与选中文本相同 → 仅加 mark，文本不变
+  var selState0 = EditorState.create({ schema: schema, doc: parseMarkdown(schema, parser, "看 这里 落") })
+  var selRange = findTextPos(selState0, "这里")
+  if (!selRange) {
+    throw new Error("setup failed")
+  }
+  var selCmd = createLinkApplyCommand(schema.marks.link, selRange.from, selRange.to, "https://a.com", "这里")
+  var selTr: any = null
+  selCmd(selState0, function (tr: any) { selTr = tr })
+  if (selTr) {
+    var selDoc2 = selState0.apply(selTr)
+    var selMarks = linkMarksInSelection(selDoc2, 1, selDoc2.doc.content.size)
+    assert("7f text 与选中文本相同时保持选中文本", selMarks.length === 1 && selMarks[0].text === "这里", JSON.stringify(selMarks))
+  }
+
+  // 7g 有选区：text 变化 → 替换选中文本并对新范围加 mark
+  var selCmd2 = createLinkApplyCommand(schema.marks.link, selRange.from, selRange.to, "https://a.com", "改过的文本")
+  var selTr2: any = null
+  selCmd2(selState0, function (tr: any) { selTr2 = tr })
+  if (selTr2) {
+    var selDoc3 = selState0.apply(selTr2)
+    var selMarks3 = linkMarksInSelection(selDoc3, 1, selDoc3.doc.content.size)
+    assert("7g text 变化替换选中文本", selMarks3.length === 1 && selMarks3[0].text === "改过的文本" && selMarks3[0].href === "https://a.com", JSON.stringify(selMarks3))
+    assert("7g 替换后文档文本正确", selDoc3.doc.textContent === "看 改过的文本 落", selDoc3.doc.textContent)
+  }
+}
+
+// ---- 8. 编辑链接：回填文本，text 变化时替换文档中的链接文本（title 保留） ----
+console.log("")
+console.log("--- 8. 编辑链接文本替换 ---")
+{
+  var editDoc = parseMarkdown(schema, parser, "[参考](https://a.com \"悬停标题\")")
+  var editState0 = EditorState.create({ schema: schema, doc: editDoc })
+  // 段首链接文本 "参考" 位于 pos 1..3（findTextPos 会跳过带 mark 的文本，直接用固定位置）
+  var editRange = { from: 1, to: 3 }
+  // 8a 编辑时 text 变化：替换链接文本，新文本带 mark，title 保留
+  var replaceCmd = createLinkEditCommand(schema.marks.link, editRange, "https://b.com", "悬停标题", "新文本")
+  var replaceTr: any = null
+  replaceCmd(editState0, function (tr: any) { replaceTr = tr })
+  assert("8a 编辑替换命令产生事务", !!replaceTr)
+  if (replaceTr) {
+    var replaced = editState0.apply(replaceTr)
+    assert("8b 替换后文档文本为新文本", replaced.doc.textContent === "新文本", replaced.doc.textContent)
+    var replacedMark: any = null
+    var replacedMarkText = ""
+    replaced.doc.descendants(function (node: PMNode) {
+      var link = node.marks.find(function (mark: any) { return mark.type.name === "link" })
+      if (link) {
+        replacedMark = link
+        replacedMarkText = node.textContent
+      }
+      return !replacedMark
+    })
+    assert("8c 新文本带 link mark 且 href 已更新", !!replacedMark && replacedMark.attrs.href === "https://b.com" && replacedMarkText === "新文本", replacedMarkText)
+    assert("8d title 不被抹掉", replacedMark && replacedMark.attrs.title === "悬停标题", replacedMark ? String(replacedMark.attrs.title) : "no mark")
+    assert("8e 序列化为 [新文本](https://b.com \"悬停标题\")", buildMarkdownSerializer(schema).serialize(replaced.doc) === "[新文本](https://b.com \"悬停标题\")", buildMarkdownSerializer(schema).serialize(replaced.doc))
+  }
+
+  // 8f 编辑时清空文本字段（text 为空串）：保持原文本不变，仅更新 href
+  var keepCmd = createLinkEditCommand(schema.marks.link, editRange, "https://b.com", "悬停标题", "")
+  var keepTr: any = null
+  keepCmd(editState0, function (tr: any) { keepTr = tr })
+  if (keepTr) {
+    var kept = editState0.apply(keepTr)
+    assert("8f 清空文本保持原文不变", kept.doc.textContent === "参考", kept.doc.textContent)
+  }
 }
 
 console.log("")

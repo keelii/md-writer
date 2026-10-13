@@ -33,6 +33,7 @@ var helpSections: HelpSection[] = [
     title: "表格",
     items: [
       ["Tab / Shift+Tab", "移到下一格 / 上一格"],
+      ["Backspace（选中行 / 列）", "单击行 / 列把手选中后，删除选中的整行 / 整列（单行表删行 / 单列表删列即整表删除）"],
       ["Backspace（行首）", "删除当前行（光标在该行第一个单元格内容开头时）"],
       ["Backspace", "删除整个表格（表格仅剩一个空单元格时）"],
       ["Backspace / Delete（跨格选区）", "清空所选单元格内容（保留单元格，格内选区正常删除）"],

@@ -131,6 +131,34 @@ Widget 不默认要求「先选中再交互」。Widget 的原生交互由具体
 
 块级左侧 hover 菜单核心在 `src/prosemirror/block-menu.ts`（Decoration.widget 注册制）。文本块锚 `pos+1`；atom/无 contentDOM 块锚 `pos` 渲染为前置兄弟。预览块的操作按钮一律通过 `previewBlockOpMenuRegistration` 追加，**不回 NodeView 内嵌菜单方案**（iframe 不可行，已被用户否决）。
 
+### 10. 短小逻辑内联，不抽函数
+
+5 行以内、无特殊业务逻辑（仅判空 / 字符串拼接 / 短路取默认值）的代码不抽函数，直接内联到调用处。判断标准：实现体 ≤5 行且无真实业务逻辑 → 内联；有真实业务逻辑，或被 3 处以上调用点复用 → 才抽函数。
+
+反例（曾出现在 buttons.tsx，已内联删除）：
+
+```ts
+function buttonTitle(name: string, shortcut?: string) {
+  var key = shortcut || ""
+  if (!key) {
+    return name
+  }
+  return name + " (" + key + ")"
+}
+```
+
+正例（内联到调用点）：
+
+```ts
+var title = item.shortcut ? item.name + " (" + item.shortcut + ")" : item.name
+```
+
+### 11. 判空与 trim 只看数据来源
+
+- 类型安全的内部可控变量（声明为非可空类型、调用链内部可控）禁止 `x == null ? "" : x` 式判空防御，直接使用；可选参数取默认值用短路 `x || ""`，不用三元判空
+- `.trim()` 只有一个判断标准：是不是用户输入。是（文档内容、输入框值、粘贴/拖入内容、DOM 属性、markdown 解析产物）就 trim；不是（内部配置、代码常量、内部调用链产物）就不 trim
+- 例外：语义化 null（null 表示「无 / auto / 转为段落」）不算防御判空，保留；`node.textContent` 等 DOM API 返回 `string | null` 的外部数据允许判空
+
 ## 排版与垂直韵律
 
 项目以 `--line-height: 28px` 为垂直节奏基准：

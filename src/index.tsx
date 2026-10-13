@@ -44,7 +44,7 @@ import "./styles/dialog.css"
 // @ts-ignore
 import "./styles/themes/default.css"
 // @ts-ignore
-import "./styles/themes/classic.css"
+// import "./styles/themes/classic.css"
 // @ts-ignore
 import "./styles/toc.css"
 // @ts-ignore

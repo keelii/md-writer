@@ -53,7 +53,7 @@ export function createListMenuRegistration(schema: Schema): BlockMenuRegistratio
       var isBullet = ctx.node.type.name === "bullet_list"
       var items: BlockOpMenuItem[] = [
         {
-          label: isBullet ? "有序" : "无序",
+          label: (isBullet ? "有序" : "无序") + "列表",
           icon: isBullet ? SvgIcon.listOrdered : SvgIcon.list,
           showLabel: true,
           run: function () {
@@ -61,7 +61,7 @@ export function createListMenuRegistration(schema: Schema): BlockMenuRegistratio
           }
         },
         {
-          label: "删除",
+          label: "删除列表",
           icon: SvgIcon.trash,
           showLabel: true,
           run: function () {

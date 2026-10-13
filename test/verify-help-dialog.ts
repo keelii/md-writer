@@ -96,7 +96,7 @@ assert(
 
 // 表格行结构：每行 2 个 td，快捷键格全部子元素均为 kbd
 var rows = findDescendants(body, "tr")
-assert(rows.length === 20, "共 20 行快捷键（实际: " + rows.length + "）")
+assert(rows.length === 21, "共 21 行快捷键（实际: " + rows.length + "）")
 function rowTds(row: FakeNode) {
   return row.children.filter(function (c) {
     return c.nodeType === 1 && c.tagName === "td"

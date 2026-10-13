@@ -147,15 +147,9 @@ export function buildSchema(): Schema {
   }
   nodes = nodes.update("horizontal_rule", horizontalRuleSpec)
 
-  // heading：上游 prosemirror-markdown 定死 content "(text | image)*"，不含 raw_inline
-  // （$$ 公式 / 脚注 / 行内 svg），导致标题内粘贴或解析行内预览节点时无法插入，
-  // replaceSelection 会把标题劈开成 heading + paragraph。放宽为允许 raw_inline，
-  // 其余 attrs / parseDOM / toDOM 与上游保持一致。
-  var baseHeadingSpec = nodes.get("heading")
-  if (baseHeadingSpec) {
-    var headingSpec: NodeSpec = Object.assign({}, baseHeadingSpec, {content: "(text | image | raw_inline)*"})
-    nodes = nodes.update("heading", headingSpec)
-  }
+  // heading：保持上游 content "(text | image)*" —— 标题内不承载行内预览节点
+  // （$$ 公式 / 脚注 / 行内 svg）。md 源码解析与粘贴侧对 heading 内的 raw_inline
+  // 一律降级为字面文本（见 markdown.ts / plugins.ts），不在 schema 层放宽。
 
   var marks = baseMarkdownSchema.spec.marks
   var codeSpec = marks.get("code")

@@ -635,7 +635,8 @@ function hasHtmlInlineTag(text: string) {
 function splitHtmlInlineTags(
   text: string,
   marks: JSONMark[] | undefined,
-  out: JSONNodeData[]
+  out: JSONNodeData[],
+  inHeading?: boolean
 ): boolean {
   var input = String(text == null ? "" : text)
   if (!input || !hasHtmlInlineTag(input)) {
@@ -652,6 +653,15 @@ function splitHtmlInlineTags(
         continue
       }
       if (parts[i].kind === "raw_inline") {
+        if (inHeading) {
+          // heading 不收 raw_inline，行内预览节点按字面文本降级
+          var rawText: JSONNodeData = {type: "text", text: parts[i].text}
+          if (marks) {
+            rawText.marks = marks
+          }
+          out.push(rawText)
+          continue
+        }
         out.push({type: "raw_inline", content: [{type: "text", text: parts[i].text}]})
         continue
       }
@@ -682,7 +692,7 @@ function splitHtmlInlineTags(
       }
       var innerMarks = (marks || []).concat([markJSON])
       var innerOut: JSONNodeData[] = []
-      if (splitHtmlInlineTags(match[3], innerMarks, innerOut)) {
+      if (splitHtmlInlineTags(match[3], innerMarks, innerOut, inHeading)) {
         for (var j = 0; j < innerOut.length; j += 1) {
           out.push(innerOut[j])
         }
@@ -693,6 +703,10 @@ function splitHtmlInlineTags(
             continue
           }
           if (plainParts[k].kind === "raw_inline") {
+            if (inHeading) {
+              out.push({type: "text", text: plainParts[k].text, marks: innerMarks})
+              continue
+            }
             out.push({type: "raw_inline", content: [{type: "text", text: plainParts[k].text}]})
             continue
           }
@@ -761,7 +775,7 @@ function replaceRawInlinePlaceholdersInDoc(schema: Schema, doc: PMNode, placehol
 
   var tokenPattern = new RegExp(parts.join("|"), "g")
 
-  function splitTextByToken(text: string, marks?: JSONMark[]) {
+  function splitTextByToken(text: string, marks?: JSONMark[], inHeading?: boolean) {
     tokenPattern.lastIndex = 0
     var out: JSONNodeData[] = []
     var last = 0
@@ -778,7 +792,16 @@ function replaceRawInlinePlaceholdersInDoc(schema: Schema, doc: PMNode, placehol
 
       var raw = byToken[match[0]]
       if (raw) {
-        out.push({type: "raw_inline", content: [{type: "text", text: raw}]})
+        if (inHeading) {
+          // heading 不收 raw_inline（$$、脚注、svg），按字面文本降级
+          var rawText: JSONNodeData = {type: "text", text: raw}
+          if (marks) {
+            rawText.marks = marks
+          }
+          out.push(rawText)
+        } else {
+          out.push({type: "raw_inline", content: [{type: "text", text: raw}]})
+        }
       } else {
         var tokenText: JSONNodeData = {type: "text", text: match[0]}
         if (marks) {
@@ -807,7 +830,7 @@ function replaceRawInlinePlaceholdersInDoc(schema: Schema, doc: PMNode, placehol
     return out
   }
 
-  function walk(nodeJSON: JSONNodeData): any {
+  function walk(nodeJSON: JSONNodeData, parentType?: string): any {
     if (!isObject(nodeJSON)) {
       return nodeJSON
     }
@@ -815,7 +838,10 @@ function replaceRawInlinePlaceholdersInDoc(schema: Schema, doc: PMNode, placehol
       return nodeJSON
     }
     if (nodeJSON.content && Array.isArray(nodeJSON.content)) {
-      nodeJSON.content = nodeJSON.content.map(walk)
+      var selfType = nodeJSON.type
+      nodeJSON.content = nodeJSON.content.map(function (child: JSONNodeData) {
+        return walk(child, selfType)
+      })
     }
     if (nodeJSON.type === "text" && isString(nodeJSON.text)) {
       if (nodeJSON.marks && Array.isArray(nodeJSON.marks)) {
@@ -825,7 +851,7 @@ function replaceRawInlinePlaceholdersInDoc(schema: Schema, doc: PMNode, placehol
           }
         }
       }
-      return splitTextByToken(nodeJSON.text, nodeJSON.marks)
+      return splitTextByToken(nodeJSON.text, nodeJSON.marks, parentType === "heading")
     }
     return nodeJSON
   }
@@ -863,7 +889,7 @@ function replaceRawInlineInDoc(schema: Schema, doc: PMNode): PMNode {
   // Keep the transformation simple and explicit: rebuild via JSON.
   var json = doc.toJSON()
 
-  function walk(nodeJSON: JSONNodeData): any {
+  function walk(nodeJSON: JSONNodeData, parentType?: string): any {
     if (!isObject(nodeJSON)) {
       return nodeJSON
     }
@@ -871,7 +897,10 @@ function replaceRawInlineInDoc(schema: Schema, doc: PMNode): PMNode {
       return nodeJSON
     }
     if (nodeJSON.content && Array.isArray(nodeJSON.content)) {
-      nodeJSON.content = nodeJSON.content.map(walk)
+      var selfType = nodeJSON.type
+      nodeJSON.content = nodeJSON.content.map(function (child: JSONNodeData) {
+        return walk(child, selfType)
+      })
     }
     if (nodeJSON.type === "text" && isString(nodeJSON.text)) {
       if (nodeJSON.marks && Array.isArray(nodeJSON.marks)) {
@@ -881,8 +910,10 @@ function replaceRawInlineInDoc(schema: Schema, doc: PMNode): PMNode {
           }
         }
       }
+      // heading 不收 raw_inline（$$、脚注、svg），行内预览节点一律按字面文本降级
+      var inHeading = parentType === "heading"
       var htmlOut: JSONNodeData[] = []
-      if (splitHtmlInlineTags(nodeJSON.text, nodeJSON.marks, htmlOut)) {
+      if (splitHtmlInlineTags(nodeJSON.text, nodeJSON.marks, htmlOut, inHeading)) {
         return htmlOut.length ? htmlOut : nodeJSON
       }
       var parts = splitRawInlineText(nodeJSON.text)
@@ -897,6 +928,14 @@ function replaceRawInlineInDoc(schema: Schema, doc: PMNode): PMNode {
           continue
         }
         if (p.kind === "raw_inline") {
+          if (inHeading) {
+            var rawText: JSONNodeData = {type: "text", text: p.text}
+            if (marks) {
+              rawText.marks = marks
+            }
+            out.push(rawText)
+            continue
+          }
           out.push({type: "raw_inline", content: [{type: "text", text: p.text}]})
           continue
         }

@@ -239,7 +239,7 @@
      显式 line-height 会让行盒取并集而超出 28px 节奏（约 +1~2px）；
      normal 使 code 的自然内容盒完全落在 strut 行盒内，行高保持 28px */
   line-height: normal;
-  padding: 0.1em 0.4em 0.2em;
+  padding: 0.1em 0.4em 0.1em;
   vertical-align: baseline
 }
 
@@ -256,9 +256,7 @@
   border-radius: 4px;
   display: inline-block;
   font-family: var(--font-code);
-  font-size: 0.85em;
   line-height: 1;
-  padding: 0.18em 0.45em 0.22em;
   white-space: nowrap;
 }
 

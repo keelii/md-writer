@@ -80,7 +80,7 @@ export function createCodeBlockMenuRegistration(schema: Schema): BlockMenuRegist
         }
       })
       items.push({
-        label: "删除",
+        label: "删除代码",
         showLabel: true,
         icon: SvgIcon.trash,
         divider: true,

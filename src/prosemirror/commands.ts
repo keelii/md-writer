@@ -182,16 +182,24 @@ function createTableMutationCommand(mutate: TableMutation): EditorCommand {
   }
 }
 
-// 链接命令（纯）：编辑已有链接 —— 清除 range 上的旧 link mark 后应用新 href
-export function createLinkEditCommand(link: MarkType, range: {from: number, to: number}, href: string): EditorCommand {
+// 链接命令（纯）：编辑已有链接 —— 清除 range 上的旧 link mark 后应用新 href；
+// text 非空且与当前文本不同时，先替换链接文本再对新范围应用 mark（title 保留）
+export function createLinkEditCommand(link: MarkType, range: {from: number, to: number}, href: string, title: string, text: string): EditorCommand {
   return function (state, dispatch) {
     if (!isFunction(dispatch)) {
       return true
     }
-    var mark = link.create({href: href, title: null})
-    var tr = state.tr.removeMark(range.from, range.to, link)
-    tr.addMark(range.from, range.to, mark)
-    dispatch(tr.scrollIntoView())
+    var mark = link.create({href: href, title: title || null})
+    if (text && text !== state.doc.textBetween(range.from, range.to)) {
+      var tr = state.tr.removeMark(range.from, range.to, link)
+      tr.insertText(text, range.from, range.to)
+      tr.addMark(range.from, range.from + text.length, mark)
+      dispatch(tr.scrollIntoView())
+      return true
+    }
+    var tr2 = state.tr.removeMark(range.from, range.to, link)
+    tr2.addMark(range.from, range.to, mark)
+    dispatch(tr2.scrollIntoView())
     return true
   }
 }
@@ -222,20 +230,29 @@ export function isCompleteHttpUrl(text: string): boolean {
   }
 }
 
-// 链接命令（纯）：新建链接 —— 选区非空时对选区应用 mark；空选区时插入 href 文本并应用 mark
-export function createLinkApplyCommand(link: MarkType, from: number, to: number, href: string): EditorCommand {
+// 链接命令（纯）：新建链接 —— 选区非空时对选区应用 mark；
+// text 非空且与选中文本不同时先替换选中文本再对新范围应用 mark；
+// 空选区时插入链接文本（text 留空则以 href 为文本）并应用 mark
+export function createLinkApplyCommand(link: MarkType, from: number, to: number, href: string, text: string): EditorCommand {
   return function (state, dispatch) {
     if (!isFunction(dispatch)) {
       return true
     }
     var mark = link.create({href: href, title: null})
     if (from < to) {
+      if (text && text !== state.doc.textBetween(from, to)) {
+        var tr = state.tr.insertText(text, from, to)
+        tr.addMark(from, from + text.length, mark)
+        dispatch(tr.scrollIntoView())
+        return true
+      }
       dispatch(state.tr.addMark(from, to, mark).scrollIntoView())
       return true
     }
-    var tr = state.tr.insertText(href, from, to)
-    tr.addMark(from, from + href.length, mark)
-    dispatch(tr.scrollIntoView())
+    var linkText = text || href
+    var tr2 = state.tr.insertText(linkText, from, to)
+    tr2.addMark(from, from + linkText.length, mark)
+    dispatch(tr2.scrollIntoView())
     return true
   }
 }

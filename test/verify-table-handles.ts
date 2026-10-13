@@ -12,6 +12,8 @@
 //    列移动到最右；三 slot 中点法边界（未过相邻边界中点不换列、越过即换）
 // 5. 单击 grip（未拖出阈值）：不改表格结构，光标补偿落到对应单元格
 // 6. 单击末尾 + 按钮：追加一行 / 一列；+ 按钮 pointerdown 不开启拖动
+// 7. 单击选中行/列后 Backspace：删除选中的整行/整列（单行表删行 / 单列表删列
+//    即整表删除）；清态与光标移出表后按普通删除处理
 // 运行：npx --yes tsx --import ./test/css-shim.mjs test/verify-table-handles.ts
 // （先 npm install --no-save jsdom；跑完可 npm install --no-save 移除）
 
@@ -39,6 +41,13 @@ var win = dom.window
 ;(globalThis as any).getSelection = win.getSelection.bind(win)
 Object.defineProperty(globalThis, "navigator", { value: win.navigator, configurable: true })
 ;(globalThis as any).getComputedStyle = win.getComputedStyle.bind(win)
+// jsdom 不提供 ResizeObserver（image-rhythm.tsx 用裸标识符探测；全量插件
+// buildPlugins 含 image-rhythm，9.5 节 bsView 构造时其 view() 会直接引用）
+;(globalThis as any).ResizeObserver = class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
 // PM 的 tr.scrollIntoView 会调用；jsdom 无布局，空实现即可
 ;(win.HTMLElement.prototype as any).scrollIntoView = function () {}
 // PM 的 scrollToSelection → coordsAtPos → singleRect 会读 getClientRects
@@ -463,6 +472,137 @@ check("重建后移动结果（b 行到表尾）", afterRedrag.slice(0, 3), [
 ])
 
 view.destroy()
+
+// ---- 9.5 单击选中行/列后 Backspace：删除选中的整行/整列；单行表删行 /
+// 单列表删列即整表删除；清态（表外按下）与光标移出表后 Backspace 按普通
+// 删除处理。真视图 + 全量插件（Backspace 链在 keymap 里），按键仿第 10 节
+// pressKey：fake view 只做壳，posAtDOM / dispatch / focus 委托给真视图 ----
+var bsHost = win.document.createElement("div")
+win.document.body.appendChild(bsHost)
+var bsKeyHandlers: Array<(view: any, event: any) => boolean> = []
+var bsPlugins = buildPlugins(schema)
+for (var bsi = 0; bsi < bsPlugins.length; bsi += 1) {
+  var bsProps = (bsPlugins[bsi] as any).props
+  if (bsProps && typeof bsProps.handleKeyDown === "function") {
+    bsKeyHandlers.push(bsProps.handleKeyDown)
+  }
+}
+var bsView = new EditorView(bsHost, {
+  state: EditorState.create({doc: parser.parse(md), schema: schema, plugins: bsPlugins}),
+  nodeViews: {
+    table: function (node: PMNode, view: EditorView, getPos: () => number | undefined): any {
+      return createTableHandlesNodeView(node, {opts: {} as any, view: view, getPos: function () { return typeof getPos() === "number" ? getPos() as number : 0 }})
+    },
+    table_cell: function (node: PMNode): any {
+      return createHandleAwareCellNodeView(node)
+    },
+    table_header: function (node: PMNode): any {
+      return createHandleAwareCellNodeView(node)
+    }
+  } as any
+})
+await tick()
+// 真视图范围内的把手/壳定位（旧 view 已销毁，这里仍按 bsView 作用域取）
+function bsShell(): HTMLElement {
+  return bsView.dom.querySelector(".md-editor-table-handles-shell") as HTMLElement
+}
+function bsGrip(kind: "row" | "col", index: number): HTMLElement {
+  return bsView.dom.querySelector(".md-editor-table-handle-" + kind + "[data-index=\"" + index + "\"]") as HTMLElement
+}
+// 按键：依序喂给各插件 handleKeyDown，posAtDOM/dispatch 委托真视图（删除命令
+// 由 DOM 反查表格位置，必须落在真视图上）
+function bsPressKey(keyName: string) {
+  var fakeView: any = {
+    state: bsView.state,
+    posAtDOM: function (node: any, offset: number) { return bsView.posAtDOM(node, offset) },
+    endOfTextblock: function (dir: string, st: any) {
+      var $cursor = st.selection.$cursor
+      if (!$cursor) {
+        return false
+      }
+      return dir === "backward" ? $cursor.parentOffset === 0 : $cursor.parentOffset === $cursor.parent.content.size
+    },
+    dispatch: function (tr: any) { bsView.dispatch(tr) },
+    focus: function () {}
+  }
+  var handled = false
+  for (var bi = 0; bi < bsKeyHandlers.length && !handled; bi += 1) {
+    handled = bsKeyHandlers[bi](fakeView, {key: keyName, ctrlKey: false, metaKey: false, shiftKey: false, altKey: false})
+  }
+  return handled
+}
+
+// 选中行 grip(1)（a 行）→ Backspace：删除 a 行，选中态清除
+dragHandle(bsGrip("row", 1), {x: 100, y: 100}, {x: 101, y: 101})
+check("选中行 Backspace 被处理", bsPressKey("Backspace"), true)
+check("选中行 Backspace 删除 a 行", readTableRows(bsView.state.doc), [
+  ["H1", "H2", "H3"],
+  ["b1", "b2", "b3"],
+  ["c1", "c2", "c3"]
+])
+check("行删除后 drop-target 清除", bsShell().querySelectorAll(".md-editor-table-drop-target").length, 0)
+check("行删除后 -selected 清除", bsShell().querySelectorAll(".md-editor-table-handle-selected").length, 0)
+check("行删除后 -highlight 清除", bsShell().className.indexOf("highlight") < 0, true)
+
+// 选中列 grip(1)（H2 列）→ Backspace：删除 H2 列
+dragHandle(bsGrip("col", 1), {x: 50, y: 100}, {x: 51, y: 101})
+check("选中列 Backspace 被处理", bsPressKey("Backspace"), true)
+check("选中列 Backspace 删除 H2 列", readTableRows(bsView.state.doc), [
+  ["H1", "H3"],
+  ["b1", "b3"],
+  ["c1", "c3"]
+])
+
+// 表外按下清态后 Backspace 不作结构删除：单击列 grip(0) 让光标落在首行表头
+// H1 内（首行不受"行首格整行删除"规则拦截，避免干扰本用例），随后在表外
+// pointerdown 清掉选中态 → Backspace 时记录已失效，命令放行走普通链，
+// 由单元格删除守卫吞掉（格内容开头边界空选区），表格结构不变
+dragHandle(bsGrip("col", 0), {x: 10, y: 10}, {x: 11, y: 11})
+check("单击列 grip 后选中态存在", bsShell().querySelectorAll(".md-editor-table-handle-selected").length, 1)
+win.document.dispatchEvent(pointerEvent("pointerdown", {x: 0, y: 0}))
+check("表外按下后选中态清除", bsShell().querySelectorAll(".md-editor-table-handle-selected").length, 0)
+bsPressKey("Backspace")
+check("清态后 Backspace 不作结构删除", readTableRows(bsView.state.doc), [
+  ["H1", "H3"],
+  ["b1", "b3"],
+  ["c1", "c3"]
+])
+
+// 选中行(2)（c 行）后光标移出表（模拟键盘移到表外尾段）→ Backspace 按普通
+// 删除处理：行不删，选中态被命令自身清掉
+dragHandle(bsGrip("row", 2), {x: 100, y: 200}, {x: 101, y: 201})
+var bsTailPos = -1
+bsView.state.doc.descendants(function (node: PMNode, pos: number) {
+  if (node.type.name === "paragraph" && node.textContent === "tail text") {
+    bsTailPos = pos
+  }
+  return true
+})
+bsView.dispatch(bsView.state.tr.setSelection(TextSelection.create(bsView.state.doc, bsTailPos + 1)))
+check("光标出表后 Backspace 按普通删除", bsPressKey("Backspace"), true)
+check("光标出表 Backspace 不删选中行", readTableRows(bsView.state.doc), [
+  ["H1", "H3"],
+  ["b1", "b3"],
+  ["c1", "c3"]
+])
+check("光标出表后选中态被清", bsShell().querySelectorAll(".md-editor-table-handle-selected").length, 0)
+
+// 单列表：选中列 grip(0) → Backspace 整表删除（表格消失，仅剩尾段）
+bsView.updateState(EditorState.create({doc: parser.parse(["| A |", "| --- |", "| a |", "| b |", "", "tail text"].join("\n")), schema: schema, plugins: bsPlugins}))
+await tick()
+dragHandle(bsGrip("col", 0), {x: 10, y: 10}, {x: 11, y: 11})
+check("单列表选中列 Backspace 被处理", bsPressKey("Backspace"), true)
+check("单列表 Backspace 整表删除", readTableRows(bsView.state.doc), [])
+check("单列表整表删除后仅剩尾段", bsView.state.doc.textContent, "tail text")
+
+// 单行表（仅表头一行）：选中行 grip(0) → Backspace 整表删除
+bsView.updateState(EditorState.create({doc: parser.parse(["| A | B |", "| --- | --- |", "", "tail text"].join("\n")), schema: schema, plugins: bsPlugins}))
+await tick()
+dragHandle(bsGrip("row", 0), {x: 10, y: 10}, {x: 11, y: 11})
+check("单行表选中行 Backspace 被处理", bsPressKey("Backspace"), true)
+check("单行表 Backspace 整表删除", readTableRows(bsView.state.doc), [])
+
+bsView.destroy()
 
 // ---- 10. 单元格删除守卫：Backspace / Delete 任何情况下不得删掉单个 cell 或
 // 合并相邻 cell（keymap 单测：fake view 依序喂给各插件的 handleKeyDown）----

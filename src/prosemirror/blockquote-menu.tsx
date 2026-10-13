@@ -49,7 +49,7 @@ export function createBlockquoteMenuRegistration(schema: Schema): BlockMenuRegis
     buildMenu: function (ctx: BlockMenuContext) {
       var items: BlockOpMenuItem[] = [
         {
-          label: "正文",
+          label: "段落正文",
           icon: SvgIcon.pilcrow,
           showLabel: true,
           run: function () {
@@ -57,7 +57,7 @@ export function createBlockquoteMenuRegistration(schema: Schema): BlockMenuRegis
           }
         },
         {
-          label: "删除",
+          label: "删除引用",
           icon: SvgIcon.trash,
           showLabel: true,
           run: function () {

@@ -34,10 +34,11 @@
 // - stopEvent：命中 handle 的事件由把手交互接管（监听挂 shell——grip 冒泡
 //   不经过 overlay），PM 不处理（pointerdown 才不会抢落光标）。
 import { Node as PMNode } from "prosemirror-model"
-import { Plugin, PluginKey, Selection } from "prosemirror-state"
-import { Decoration, DecorationSet } from "prosemirror-view"
+import { EditorState, Plugin, PluginKey, Selection } from "prosemirror-state"
+import { Decoration, DecorationSet, EditorView } from "prosemirror-view"
 import { SvgIcon } from "../icons"
 import { isNumber } from "../utils"
+import { EditorDispatch, TableContext } from "../types"
 import { NodeViewContext } from "./nodeviews/types"
 import {
   applyTableMutationWithContext,
@@ -46,7 +47,9 @@ import {
   getTableContextAt,
   getTableRowsFromNode,
   mutateTableAddColumn,
-  mutateTableAddRow
+  mutateTableAddRow,
+  mutateTableDeleteColumn,
+  mutateTableDeleteRow
 } from "./table"
 import "./table-handles.css"
 
@@ -76,6 +79,169 @@ var ALIGN_OPTIONS: Array<{value: string | null, label: string, icon: string}> = 
   {value: "center", label: "居中", icon: SvgIcon.alignCenter},
   {value: "right", label: "右对齐", icon: SvgIcon.alignRight}
 ]
+
+// ===== 单击把手选中的行/列记录 + Backspace 删除 =====
+// 单击 grip（未拖出阈值）会保留该行/列高亮形成"选中态"（纯 DOM，不进编辑器
+// 状态）。这里在模块级记一条引用（全文档同时最多一条——任何新一次选中都
+// 覆盖旧记录），供 Backspace 命令由 DOM 反查编辑器位置后删除整行/整列。
+interface HandleSelectedLine {
+  kind: "row" | "col"
+  index: number
+  // 选中态所在的 shell / contentDOM（table 元素）与被点中的 grip 元素
+  shell: HTMLElement
+  tableEl: HTMLElement
+  gripEl: HTMLElement
+}
+
+var handleSelectedLine: HandleSelectedLine | null = null
+
+// 记住一次单击选中：先清旧记录（旧 shell 上的 DOM 高亮一并清）
+function setHandleSelectedLine(record: HandleSelectedLine) {
+  clearHandleSelectedLine()
+  handleSelectedLine = record
+}
+
+// 清除选中记录：shell 的高亮方向类、grip 的 -selected 态、单元格上的
+// drop-target 高亮一并清掉（DOM 层面与 endDrag(false) 等价），记录置空
+function clearHandleSelectedLine() {
+  var record = handleSelectedLine
+  handleSelectedLine = null
+  if (!record) {
+    return
+  }
+  record.shell.classList.remove("md-editor-table-handles-highlight-row")
+  record.shell.classList.remove("md-editor-table-handles-highlight-col")
+  var selected = record.shell.querySelectorAll(".md-editor-table-handle-selected")
+  for (var i = 0; i < selected.length; i += 1) {
+    selected[i].classList.remove("md-editor-table-handle-selected")
+  }
+  var marked = record.shell.querySelectorAll("." + DROP_TARGET_CLASS)
+  for (var j = 0; j < marked.length; j += 1) {
+    marked[j].classList.remove(DROP_TARGET_CLASS)
+  }
+}
+
+// NodeView 内各清除时机用：仅当记录属于该 shell（本表）时才清，不动别的表
+function forgetHandleSelectedLine(shell: HTMLElement) {
+  if (handleSelectedLine && handleSelectedLine.shell === shell) {
+    clearHandleSelectedLine()
+  }
+}
+
+// Backspace 命令：把手单击选中了行/列时，删除选中的整行/整列。单行表删行 /
+// 单列表删列即整表删除（mutateTableDeleteRow / mutateTableDeleteColumn 对
+// 1 行 / 1 列返回 ok:false，这里先判并直接走整表删除，写法仿
+// deleteSingleCellTableOnBackspace）。任何校验不过（无记录、grip 已被 PM
+// 重绘清掉、DOM 反查表格位置失败、索引越界、光标不在该表内——比如键盘
+// 把光标移进了别的表）都清掉选中态并返回 false，把 Backspace 交回链上
+// 后续命令（行首格整行删除、单元格删除守卫等）。
+export function deleteHandleSelectedLineOnBackspace(
+  state: EditorState,
+  dispatch?: EditorDispatch,
+  view?: EditorView
+): boolean {
+  var record = handleSelectedLine
+  if (!record || !view) {
+    return false
+  }
+  // grip / shell 已脱离文档（PM 重绘内容、NodeView 销毁重建等）：选中态已
+  // 自然失效，静默清记录放行
+  if (!record.gripEl.isConnected || !record.shell.isConnected) {
+    clearHandleSelectedLine()
+    return false
+  }
+  // grip 的 data-index 由 rebuildHandles 按当前行列重写，选中后表格结构
+  // 变过时以它为准（比选中时记的 index 新）
+  var gripIndex = parseInt(record.gripEl.getAttribute("data-index") || "", 10)
+  var index = isNumber(gripIndex) ? gripIndex : record.index
+
+  // 由 DOM 反查表格当前文档位置（选中后文档可能变过，不能缓存 pos）
+  var tableNode: PMNode | null = null
+  var tablePos = -1
+  try {
+    var $pos = state.doc.resolve(view.posAtDOM(record.tableEl, 0))
+    for (var depth = $pos.depth; depth >= 1; depth -= 1) {
+      var depthNode = $pos.node(depth)
+      if (depthNode.type.name === "table") {
+        tableNode = depthNode
+        tablePos = $pos.before(depth)
+        break
+      }
+    }
+  } catch (error) {
+    // posAtDOM 在元素未挂载 / 已脱离文档等场景会抛错，走失效分支
+  }
+  if (!tableNode) {
+    clearHandleSelectedLine()
+    return false
+  }
+
+  // 光标必须还在该表内：选中后键盘把光标挪去别处（含别的表）时按下
+  // Backspace 应按普通删除处理，不作结构删除
+  var $from = state.selection.$from
+  var cursorInTable = false
+  for (var cursorDepth = $from.depth; cursorDepth >= 0; cursorDepth -= 1) {
+    if ($from.node(cursorDepth) === tableNode) {
+      cursorInTable = true
+      break
+    }
+  }
+  if (!cursorInTable) {
+    clearHandleSelectedLine()
+    return false
+  }
+
+  var rows = getTableRowsFromNode(tableNode)
+  var maxCols = 0
+  for (var r = 0; r < rows.length; r += 1) {
+    var rowNode = rows[r].rowNode
+    if (rowNode && rowNode.childCount > maxCols) {
+      maxCols = rowNode.childCount
+    }
+  }
+  if (record.kind === "row" ? (index < 0 || index >= rows.length) : (index < 0 || index >= maxCols)) {
+    clearHandleSelectedLine()
+    return false
+  }
+
+  // 单行表删行 / 单列表删列 → 整表删除
+  if ((record.kind === "row" && rows.length === 1) || (record.kind === "col" && maxCols === 1)) {
+    if (!dispatch) {
+      return true
+    }
+    var deleteTr = state.tr.delete(tablePos, tablePos + tableNode.nodeSize)
+    var selectionPos = Math.min(tablePos, deleteTr.doc.content.size)
+    dispatch(deleteTr.setSelection(Selection.near(deleteTr.doc.resolve(selectionPos), -1)).scrollIntoView())
+    clearHandleSelectedLine()
+    return true
+  }
+
+  // 行删除锚在该行首列；列删除锚在首个包含该列的行（同 buildMoveContext 语义）
+  var context: TableContext | null = null
+  if (record.kind === "row") {
+    context = getTableContextAt(tableNode, tablePos, index, 0)
+  } else {
+    for (var row = 0; row < rows.length; row += 1) {
+      var anchorRow = rows[row].rowNode
+      if (anchorRow && anchorRow.childCount > index) {
+        context = getTableContextAt(tableNode, tablePos, row, index)
+        break
+      }
+    }
+  }
+  if (!context) {
+    clearHandleSelectedLine()
+    return false
+  }
+  var mutation = record.kind === "row" ? mutateTableDeleteRow : mutateTableDeleteColumn
+  if (!applyTableMutationWithContext(state, dispatch, context, mutation)) {
+    // 结构不允许删（如仅一行表头的行无法删且无 body 可提升）等：清态放行
+    clearHandleSelectedLine()
+    return false
+  }
+  clearHandleSelectedLine()
+  return true
+}
 
 // cell / table 两级 ignoreMutation 的共享判定：
 // - selection 型 mutation（TS 的 MutationRecordType 未收录）交给 PM 自己处理；
@@ -596,6 +762,8 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
   function onDragEnd() {
     var state = dragState
     dragState = null
+    // 本次按下无论单击还是真拖动，旧选中记录都作废（单击分支随后记新选中）
+    forgetHandleSelectedLine(shell)
     if (!state) {
       endDrag(false, "row")
       return
@@ -610,6 +778,16 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
       if (state.cellEl) {
         focusCell(state.cellEl)
       }
+      // 记下本次单击选中的行/列，供 Backspace 删除（set 内部先清旧记录）
+      if (state.gripEl) {
+        setHandleSelectedLine({
+          kind: state.kind,
+          index: state.fromIndex,
+          shell: shell,
+          tableEl: table,
+          gripEl: state.gripEl
+        })
+      }
       return
     }
     endDrag(false, state.kind)
@@ -621,6 +799,7 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
 
   function onDragCancel() {
     dragState = null
+    forgetHandleSelectedLine(shell)
     endDrag(false, "row")
   }
 
@@ -774,10 +953,11 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
     }
     dragState = state
     // 新一次按下即开始新交互：清掉上一次单击保留的高亮方向类与 grip 选中态
-    // （保留的 drop-target 类由 showIndicator 清旧写新）
+    // （保留的 drop-target 类由 showIndicator 清旧写新），并作废旧选中记录
     shell.classList.remove("md-editor-table-handles-highlight-row")
     shell.classList.remove("md-editor-table-handles-highlight-col")
     clearSelectedGrips()
+    forgetHandleSelectedLine(shell)
     shell.classList.add("md-editor-table-handles-dragging")
     shell.classList.add(kind === "row" ? "md-editor-table-handles-dragging-row" : "md-editor-table-handles-dragging-col")
     // 按下（grip 得 handle-active）即高亮被抓的行/列——toIndex 初始就是
@@ -857,6 +1037,7 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
     lastIndicatorKey = ""
     clearDropTargetClass()
     clearSelectedGrips()
+    forgetHandleSelectedLine(shell)
   }
 
   // 监听在 shell 上：单元格内容的正常点击也冒泡到这里，必须先确认命中把手
@@ -984,6 +1165,8 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
     destroy: function () {
       document.removeEventListener("pointerdown", onDocPointerDown)
       closeAlignMenu()
+      // shell 即将随 NodeView 销毁脱离文档：属于本表的选中记录一并作废
+      forgetHandleSelectedLine(shell)
       if (measureFrame !== null) {
         window.cancelAnimationFrame(measureFrame)
         measureFrame = null

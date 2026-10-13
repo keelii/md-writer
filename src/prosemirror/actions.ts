@@ -20,7 +20,10 @@ function createLinkAction(link: MarkType): EditorAction {
     // 光标在链接内或选区包含链接时，进入编辑模式：弹 dialog 修改/删除链接
     if (activeLink || cursorRange) {
       var currentHref = activeLink ? String(activeLink.attrs.href || "") : ""
-      requestHrefByDialog(currentHref, view.dom, true).then(function (result) {
+      // 弹窗不再编辑 title（悬停标题），但编辑时须保留文档中已有的 title 不被抹掉
+      var currentTitle = activeLink ? String(activeLink.attrs.title || "") : ""
+      var currentText = state.doc.textBetween(cursorRange ? cursorRange.from : state.selection.from, cursorRange ? cursorRange.to : state.selection.to)
+      requestHrefByDialog(currentHref, currentText, view.dom, true).then(function (result) {
         // dialog 打开期间 state 可能已变化，用最新的 view.state 重新解析作用范围
         var nextState = view.state
         var nextSelection = nextState.selection
@@ -36,7 +39,7 @@ function createLinkAction(link: MarkType): EditorAction {
           view.focus()
           return
         }
-        createLinkEditCommand(link, range, result.href)(nextState, view.dispatch)
+        createLinkEditCommand(link, range, result.href, currentTitle, result.text)(nextState, view.dispatch)
         view.focus()
       })
       return
@@ -52,20 +55,22 @@ function createLinkAction(link: MarkType): EditorAction {
       if (trimmedText && isCompleteHttpUrl(trimmedText)) {
         var leading = selectedText.length - selectedText.replace(/^\s+/, "").length
         var trailing = selectedText.length - selectedText.replace(/\s+$/, "").length
-        createLinkApplyCommand(link, state.selection.from + leading, state.selection.to - trailing, trimmedText)(state, view.dispatch)
+        createLinkApplyCommand(link, state.selection.from + leading, state.selection.to - trailing, trimmedText, "")(state, view.dispatch)
         view.focus()
         return
       }
     }
 
-    // 无链接上下文时，新建链接：空选区插入 href 文本，非空选区对选区应用 mark
-    requestHrefByDialog("", view.dom, false).then(function (result) {
+    // 无链接上下文时，新建链接：弹窗始终展示「链接文本」+「链接地址」；
+    // 有选区时回填选中文本（用户可改，确认后替换），空选区时留空则以 href 为文本
+    var newLinkText = state.selection.empty ? "" : state.doc.textBetween(state.selection.from, state.selection.to)
+    requestHrefByDialog("", newLinkText, view.dom, false).then(function (result) {
       if (result.action !== "confirm" || !result.href) {
         return
       }
       var nextState = view.state
       var nextSelection = nextState.selection
-      createLinkApplyCommand(link, nextSelection.from, nextSelection.to, result.href)(nextState, view.dispatch)
+      createLinkApplyCommand(link, nextSelection.from, nextSelection.to, result.href, result.text)(nextState, view.dispatch)
       view.focus()
     })
   }

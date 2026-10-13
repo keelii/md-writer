@@ -297,11 +297,11 @@ assertEqual(!!findButtonByTitle(paraMenu, "H3"), true, "paragraph panel has H3 i
 assertEqual(!!findButtonByTitle(paraMenu, "引用"), true, "paragraph panel has 引用 item")
 assertEqual(!!findButtonByTitle(paraMenu, "列表"), true, "paragraph panel has 列表 item")
 assertEqual(!!findButtonByTitle(paraMenu, "表格"), true, "paragraph panel has 表格 item")
-assertEqual(!!findButtonByTitle(paraMenu, "删除"), true, "paragraph panel has 删除 item (multi-block doc)")
+assertEqual(!!findButtonByTitle(paraMenu, "删除段落"), true, "paragraph panel has 删除段落 item (multi-block doc)")
 
 // 文档仅剩唯一段落：删除项省略，转换项保留
 var singleMenu = buildMenuFor(createParagraphMenuRegistration(schema), fakeView("唯一段落"))
-assertEqual(!!findButtonByTitle(singleMenu, "删除"), false, "single-block doc omits 删除 item")
+assertEqual(!!findButtonByTitle(singleMenu, "删除段落"), false, "single-block doc omits 删除段落 item")
 assertEqual(!!findButtonByTitle(singleMenu, "表格"), true, "single-block doc keeps transform items")
 
 // 标题面板不追加转换项，但含「转为正文」项（pilcrow icon）
@@ -310,7 +310,7 @@ assertEqual(!!findButtonByTitle(headingMenu, "引用"), false, "heading panel ha
 assertEqual(!!findButtonByTitle(headingMenu, "表格"), false, "heading panel has no 表格 item")
 assertEqual(!!findButtonByIcon(headingMenu, SvgIcon.pilcrow), true, "heading panel has 正文 (pilcrow) item")
 
-// 段落面板主按钮图标：非空段落用段落符 pilcrow，删除项 icon 后显示可见文字「删除」
+// 段落面板主按钮图标：非空段落用段落符 pilcrow，删除项 icon 后显示可见文字「删除段落」
 var paraToggle = findButtonByTitle(paraMenu, "段落操作")
 assertEqual(paraToggle ? paraToggle.innerHTML === SvgIcon.pilcrow : false, true, "non-empty paragraph toggle uses pilcrow icon")
 
@@ -318,7 +318,7 @@ assertEqual(paraToggle ? paraToggle.innerHTML === SvgIcon.pilcrow : false, true,
 var emptyParaMenu = buildMenuFor(createParagraphMenuRegistration(schema), fakeView(""))
 var emptyParaToggle = findButtonByTitle(emptyParaMenu, "段落操作")
 assertEqual(emptyParaToggle ? emptyParaToggle.innerHTML === SvgIcon.feather : false, true, "empty paragraph toggle uses feather icon")
-var deleteButton = findButtonByTitle(paraMenu, "删除")
+var deleteButton = findButtonByTitle(paraMenu, "删除段落")
 var deleteText = ""
 if (deleteButton) {
   for (var di = 0; di < deleteButton.children.length; di += 1) {
@@ -328,7 +328,7 @@ if (deleteButton) {
     }
   }
 }
-assertEqual(deleteText, "删除", "delete item shows visible label after icon")
+assertEqual(deleteText, "删除段落", "delete item shows visible label after icon")
 
 // 转换项/删除项前各有一条分组分隔线
 var dividerCount = 0

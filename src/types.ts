@@ -115,6 +115,8 @@ export type TableMutation = (tableJSON: JSONNodeData, context: TableContext) => 
 export type LinkDialogResult = {
   action: "confirm" | "remove" | "cancel";
   href: string;
+  // 弹窗「链接文本」输入框的值（空串表示不改文本：有选区保留选中文本，空选区以 href 为文本）
+  text: string;
 };
 
 export type DialogAction = "confirm" | "cancel" | "remove";

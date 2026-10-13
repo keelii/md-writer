@@ -62,7 +62,7 @@ export var CODE_LANGUAGES: Array<{value: string, label: string}> = [
   {value: "xml", label: "XML"},
   {value: "md", label: "Markdown"},
   {value: "sh", label: "Shell"},
-  {value: "", label: "纯文本"}
+  {value: "", label: "text"}
 ]
 
 // fence info 首词 → 语言切换主按钮显示的扩展名简写：

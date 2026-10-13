@@ -13,6 +13,7 @@ import { moveSelectionAcrossBlock } from "./commands"
 import { resolveImageAttrs } from "./image-upload"
 import { applyTableMutation, deleteSingleCellTableOnBackspace, deleteTableRowOnBackspace, createExitTableCellRule, getTableContext, guardTableCellDeletion, isLastTableCell, moveTableCellSelection, mutateTableAddRowFirstCell } from "./table"
 import { deletePreviewRawBlockOnBackspace, deletePreviewRawBlockOnDelete } from "./nodeviews/kinds"
+import { deleteHandleSelectedLineOnBackspace } from "./table-handles"
 import { BlockMenuRegistration, createBlockMenuPlugin } from "./block-menu"
 import { createHeadingMenuRegistration } from "./heading-menu"
 import { createParagraphMenuRegistration } from "./paragraph-menu"
@@ -156,7 +157,7 @@ export function dedentCodeBlockCommand(state: EditorState, dispatch?: EditorDisp
 }
 
 function createPlaceholderPlugin(schema: Schema, placeholder?: string): Plugin | null {
-  var text = String(placeholder == null ? "" : placeholder).trim()
+  var text = placeholder || ""
   if (!text) {
     return null
   }
@@ -319,14 +320,15 @@ function looksLikeMarkdownSource(text: string): boolean {
 // 含 <svg>…</svg> 的剪贴板内容同样走解析管线（hasRawSvgMarkup 分支），
 // 否则单行 svg 不满足大段源码判定，会被默认粘贴当作纯文本字面插入，无法渲染。
 export function createMarkdownPastePlugin(schema: Schema, markdownParser: MarkdownParser): Plugin {
-  // 光标所在行内文本块（paragraph / heading / table_cell 等）中、光标之前的同行文本；
+  // 光标所在行内文本块（paragraph / table_cell 等）中、光标之前的同行文本；
   // 非文本块 / 行首（含纯空白）时为空串。
   // 用途：判定粘贴落点是否在行内（源码模式下 svg 不在行首即按行内 raw 解析）。
-  // heading / 单元格的前缀取其行内文本（不含 "# " 等标记），拼接解析时按普通文本行还原行内片段。
+  // 单元格的前缀取其行内文本，拼接解析时按普通文本行还原行内片段。
+  // heading 不在枚举内：标题不允许行内 svg（见 pasteSvgMarkup）。
   function currentParagraphLinePrefix(state: EditorState): string {
     var $from = state.selection.$from
     var parent = $from.parent
-    if ((parent.type.name !== "paragraph" && parent.type.name !== "heading" &&
+    if ((parent.type.name !== "paragraph" &&
          parent.type.name !== "table_cell" && parent.type.name !== "table_header") || $from.parentOffset <= 0) {
       return ""
     }
@@ -366,13 +368,20 @@ export function createMarkdownPastePlugin(schema: Schema, markdownParser: Markdo
   }
 
   // 含 <svg>…</svg> 的粘贴文本 → markdown 解析管线渲染为预览节点。
-  // 行内/块级语义与源码模式保持一致（paragraph / heading / 表格单元格均适用）：
+  // 行内/块级语义与源码模式保持一致（paragraph / 表格单元格均适用）：
   // - 光标前同行有非空白文本（svg 落点不在行首）→ 行内路径：把粘贴文本拼到
   //   行前缀后按同一行解析，从结果段落剥出“粘贴新增”的行内片段插入，不劈开段落；
   //   解析侧前缀与原行前缀逐字对位校验，实体/markdown 转义破坏对位时放弃该路径。
   // - 光标在行首（空段落 / 行首位置）→ 块级路径：粘贴文本单独解析，
   //   行首 <svg> 即块级 raw_block 预览；svg 夹在文本中间则解析为含 raw_inline 的段落。
+  // - heading 不允许 svg（schema 层不收 raw_inline）：光标在标题行中间时交回默认
+  //   粘贴（svg 源码按字面文本插入，与 md 源码解析侧的降级一致）；
+  //   标题行首/行尾仍走块级路径（raw_block 落在标题外，标题结构不动）。
   function pasteSvgMarkup(view: EditorView, text: string): boolean {
+    var $from = view.state.selection.$from
+    if ($from.parent.type.name === "heading" && $from.parentOffset > 0 && $from.parentOffset < $from.parent.content.size) {
+      return false
+    }
     var linePrefix = currentParagraphLinePrefix(view.state)
     // 表格单元格行首：cell content 只收 inline，块级 raw_block 会被 replaceRange
     // 撑破单元格结构（拆表），改用占位前缀强制走行内路径（解析后剥掉占位符）。
@@ -939,12 +948,16 @@ export function buildPlugins(schema: Schema, options?: MDWriterInitOptions): Plu
     ArrowUp: moveSelectionAcrossBlock(-1),
     ArrowDown: moveSelectionAcrossBlock(1),
     Backspace: function (state, dispatch, view) {
+      // 把手单击选中的行/列整行/整列删除（单行表删行/单列表删列即整表删除）；
       // 单格空表格整表删除；行首格整行删除；单元格删除守卫（跨格选区清空
       // 触及 cell 内容保留网格；NodeSelection 选中 cell 清空其内容；格内
       // 边界空选区吞掉——cell 网格只能靠结构命令改）；
       // 预览类节点（$$ 公式 / iframe / frontmatter / mermaid）整块删除；
       // 其余回落到 baseKeymap（deleteSelection / joinBackward /
       // selectNodeBackward）。
+      if (deleteHandleSelectedLineOnBackspace(state, dispatch, view)) {
+        return true
+      }
       if (deleteSingleCellTableOnBackspace(state, dispatch)) {
         return true
       }

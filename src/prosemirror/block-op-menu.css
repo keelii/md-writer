@@ -57,7 +57,6 @@
 .md-editor-block-op-menu-item {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 6px;
   width: 100%;
   padding: 4px 8px;
@@ -88,12 +87,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   flex: none;
 }
 .md-editor-block-op-menu-icon svg {
   display: block;
-  width: 14px;
-  height: 14px;
 }

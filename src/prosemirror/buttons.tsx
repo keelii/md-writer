@@ -120,43 +120,34 @@ const commandButtons: Record<string, CommandButtonConfig> = {
   }
 }
 
-const viewButtons: Record<string, ViewButtonConfig> = {
-  toggle_source: {
+const viewButtons: Array<ViewButtonConfig> = [
+  {
     name: "切换源码",
     code: "toggle_source",
     shortcut: "Meta+E",
     svg: SvgIcon.codeXml
   },
-  toggle_toc: {
+  {
     name: "切换目录",
     code: "toggle_toc",
     svg: SvgIcon.squareText
   },
-  show_help: {
+  {
     name: "快捷键帮助",
     code: "show_help",
     svg: SvgIcon.circleHelp
   }
-}
+]
 
-// devOnly 调试按钮：仅在 dev 构建（esbuild --define:APP_ENV="dev"）动态注册。
+// devOnly 调试按钮：仅在 dev 构建（esbuild --define:APP_ENV="dev"）动态注册，固定倒数第 2 位。
 // 宏直接内联在 if 条件中（不落中间变量），也不与运行时字段/过滤逻辑耦合——
 // prod 构建下条件为常量 false，整个语句块编译期即被消除，按钮定义完全不进产物。
 if (APP_ENV === "dev") {
-  viewButtons.toggle_rhythm = {
+  viewButtons.splice(viewButtons.length - 1, 0, {
     name: "切换韵律网格",
     code: "toggle_rhythm",
     svg: SvgIcon.grid3x3
-  }
-}
-
-function buttonTitle(name: string, shortcut?: string) {
-  var text = String(name == null ? "" : name).trim()
-  var key = String(shortcut == null ? "" : shortcut).trim()
-  if (!key) {
-    return text
-  }
-  return text + " (" + key + ")"
+  })
 }
 
 export function renderCommandButtons(root: Element) {
@@ -168,7 +159,7 @@ export function renderCommandButtons(root: Element) {
   var collapsedButtons: Array<JSXChild> = []
   keys.forEach(function (key, index) {
     var item = commandButtons[key]
-    var title = buttonTitle(item.name, item.shortcut)
+    var title = item.shortcut ? item.name + " (" + item.shortcut + ")" : item.name
     var button = (
       <button
         type="button"
@@ -437,11 +428,9 @@ export function bindViewButtons(
 }
 
 export function renderViewButtons(root: Element) {
-  // toggle_rhythm 由模块顶部 APP_ENV 宏 if 注册，prod 构建下不在表中
-  var keys = Object.keys(viewButtons)
-  var buttons = keys.map(function (key) {
-    var item = viewButtons[key]
-    var title = buttonTitle(item.name, item.shortcut)
+  // toggle_rhythm 由模块顶部 APP_ENV 宏 if 注册，prod 构建下不在数组中
+  var buttons = viewButtons.map(function (item) {
+    var title = item.shortcut ? item.name + " (" + item.shortcut + ")" : item.name
     return (
       <button
         type="button"
