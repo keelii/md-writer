@@ -12,7 +12,6 @@
   border-radius: 4px;
   color: #ccc;
   cursor: pointer;
-  /*user-select: none;*/
 }
 .md-editor-block-op-menu-button:hover {
   background: rgba(0, 0, 0, 0.06);
@@ -45,8 +44,8 @@
   z-index: 30;
 
 }
-/* 仅代码块语言候选列表限高滚动 */
-.md-editor-code-block-menu .md-editor-block-op-menu-panel {
+/* 分组列表容器（如语言候选）：限高滚动，组外操作（如删除）始终可见；细滚动条外观复用 .thin-scrollbar（styles/layout.css） */
+.md-editor-block-op-menu-group {
   max-height: 240px;
   overflow-y: auto;
 }

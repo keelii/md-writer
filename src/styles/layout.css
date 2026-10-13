@@ -23,7 +23,6 @@ body {
   --table-handler-size-n: -20px;
 
   min-height: 100vh;
-  /*padding: 0 5em;*/
 }
 
 .md-editor {
@@ -116,4 +115,21 @@ body {
     rgba(0, 0, 0, 0.05) var(--rhythm)
   );
   background-size: 100% var(--rhythm);
+}
+
+/* 通用细滚动条（toc 面板、块操作菜单分组列表等可滚动容器复用）：
+   Firefox 走 scrollbar-width/scrollbar-color，WebKit 系走伪元素 */
+.thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,0,0,0.1) transparent;
+}
+.thin-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.1);
+  border-radius: 3px;
 }

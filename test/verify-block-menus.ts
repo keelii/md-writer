@@ -282,13 +282,13 @@ function runMenuItem(markdown: string, buttonTitle: string): string {
   return serializer.serialize(view.state.doc)
 }
 
-assertEqual(runMenuItem("- first\n- second", "有序"), "1. first\n2. second", "bullet -> ordered keeps content")
-assertEqual(runMenuItem("1. first\n2. second", "无序"), "* first\n* second", "ordered -> bullet keeps content")
-assertEqual(runMenuItem("> quoted\n\nafter", "正文"), "quoted\n\nafter", "blockquote unwraps to paragraphs")
-assertEqual(runMenuItem("> quoted\n\nafter", "删除"), "after", "delete blockquote removes whole block")
-assertEqual(runMenuItem("- first\n\nafter", "删除"), "after", "delete list removes whole list")
-assertEqual(runMenuItem("before\n\n```js\ncode\n```", "删除"), "before", "delete code block removes whole block")
-assertEqual(runMenuItem("```js\ncode\n```", "删除"), "", "delete only block falls back to empty paragraph")
+assertEqual(runMenuItem("- first\n- second", "有序列表"), "1. first\n2. second", "bullet -> ordered keeps content")
+assertEqual(runMenuItem("1. first\n2. second", "无序列表"), "* first\n* second", "ordered -> bullet keeps content")
+assertEqual(runMenuItem("> quoted\n\nafter", "段落正文"), "quoted\n\nafter", "blockquote unwraps to paragraphs")
+assertEqual(runMenuItem("> quoted\n\nafter", "删除引用"), "after", "delete blockquote removes whole block")
+assertEqual(runMenuItem("- first\n\nafter", "删除列表"), "after", "delete list removes whole list")
+assertEqual(runMenuItem("before\n\n```js\ncode\n```", "删除代码"), "before", "delete code block removes whole block")
+assertEqual(runMenuItem("```js\ncode\n```", "删除代码"), "", "delete only block falls back to empty paragraph")
 
 // ---------- 3. 代码块语言切换 ----------
 
@@ -353,15 +353,54 @@ walk(jsMenu, function (el) {
 })
 assertEqual(jsDividerCount, 1, "one divider between language list and delete")
 
+// 语言候选分组：group 项包进限高滚动容器（超过最大高度出滚动条），
+// divider 与删除项在组外常显（不被滚出视野）
+var jsGroup: FakeElement | null = null
+walk(jsMenu, function (el) {
+  if (!jsGroup && el.tagName === "div" && el.classList.contains("md-editor-block-op-menu-group")) {
+    jsGroup = el
+  }
+})
+assertEqual(!!jsGroup, true, "language candidates wrapped in group container")
+var jsGroupHasLanguage = false
+var jsGroupHasDelete = false
+if (jsGroup) {
+  walk(jsGroup, function (el) {
+    if (el.tagName === "button" && el.attrs["title"] === "JavaScript") {
+      jsGroupHasLanguage = true
+    }
+    if (el.tagName === "button" && el.attrs["title"] === "删除代码") {
+      jsGroupHasDelete = true
+    }
+  })
+}
+assertEqual(jsGroupHasLanguage, true, "language item inside group container")
+assertEqual(jsGroupHasDelete, false, "delete item outside group container")
+var jsPanel: FakeElement | null = null
+walk(jsMenu, function (el) {
+  if (!jsPanel && el.tagName === "div" && el.className === "md-editor-block-op-menu-panel") {
+    jsPanel = el
+  }
+})
+var jsPanelDirectDelete = false
+if (jsPanel) {
+  for (var k = 0; k < jsPanel.children.length; k += 1) {
+    if (jsPanel.children[k].tagName === "button" && jsPanel.children[k].attrs["title"] === "删除代码") {
+      jsPanelDirectDelete = true
+    }
+  }
+}
+assertEqual(jsPanelDirectDelete, true, "delete item stays visible outside scrollable group")
+
 var plainMenu = buildCodeMenuFor("```\ncode\n```")
 var plainToggle = findButtonByTitle(plainMenu, "切换代码块语言")
 assertEqual(plainToggle ? textOf(plainToggle) : "", "文本", "no-language toggle shows 文本")
-var plainActive = findButtonByTitle(plainMenu, "纯文本")
-assertEqual(!!plainActive && plainActive.classList.contains("md-editor-block-op-menu-item-active"), true, "纯文本 item highlighted for no-language block")
+var plainActive = findButtonByTitle(plainMenu, "text")
+assertEqual(!!plainActive && plainActive.classList.contains("md-editor-block-op-menu-item-active"), true, "text item highlighted for no-language block")
 
 assertEqual(runMenuItem("```js\ncode\n```", "Python"), "```py\ncode\n```", "switch language keeps content")
 assertEqual(runMenuItem("```\ncode\n```", "Go"), "```go\ncode\n```", "plain code block gains language")
-assertEqual(runMenuItem("```ts\ncode\n```", "纯文本"), "```\ncode\n```", "switch to 纯文本 clears params")
+assertEqual(runMenuItem("```ts\ncode\n```", "text"), "```\ncode\n```", "switch to text clears params")
 
 // ---------- 4. 主按钮图标（列表/引用显示块类型 icon，代码块语言归一） ----------
 

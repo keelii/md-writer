@@ -1,5 +1,4 @@
 .md-editor-raw-preview {
-  /*overflow: auto;*/
   margin-bottom: var(--line-height);
   /* 预览整体不可编辑：点击放行原生事件不主动选中，cursor 交由浏览器默认 */
   cursor: default;

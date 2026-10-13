@@ -206,6 +206,7 @@ export function bindTocPanel(
   var lastRenderedDoc: PMNode | null = null
 
   addClass(root, "md-editor-toc")
+  addClass(root, "thin-scrollbar")
 
   function render() {
     items = collectTocItems(view.state, maxDepth)
@@ -329,6 +330,7 @@ export function bindTocPanel(
       scrollTarget.removeEventListener("scroll", onScroll)
       root.innerHTML = ""
       removeClass(root, "md-editor-toc")
+      removeClass(root, "thin-scrollbar")
       removeClass(root, "collapsed")
       items = []
       activeElement = null

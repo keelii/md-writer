@@ -293,21 +293,21 @@ function runTransformItem(markdown: string, buttonTitle: string, serialize: bool
 // 仅列 H1-H6
 var paraMenu = buildMenuFor(createParagraphMenuRegistration(schema), fakeView("第一段\n\n第二段"))
 assertEqual(!!findButtonByIcon(paraMenu, SvgIcon.pilcrow), false, "paragraph panel omits 正文 item (already a paragraph)")
-assertEqual(!!findButtonByTitle(paraMenu, "H3"), true, "paragraph panel has H3 item")
-assertEqual(!!findButtonByTitle(paraMenu, "引用"), true, "paragraph panel has 引用 item")
-assertEqual(!!findButtonByTitle(paraMenu, "列表"), true, "paragraph panel has 列表 item")
-assertEqual(!!findButtonByTitle(paraMenu, "表格"), true, "paragraph panel has 表格 item")
+assertEqual(!!findButtonByTitle(paraMenu, "三级标题"), true, "paragraph panel has 三级标题 item")
+assertEqual(!!findButtonByTitle(paraMenu, "引用内容"), true, "paragraph panel has 引用内容 item")
+assertEqual(!!findButtonByTitle(paraMenu, "有序列表"), true, "paragraph panel has 有序列表 item")
+assertEqual(!!findButtonByTitle(paraMenu, "表格数据"), true, "paragraph panel has 表格数据 item")
 assertEqual(!!findButtonByTitle(paraMenu, "删除段落"), true, "paragraph panel has 删除段落 item (multi-block doc)")
 
 // 文档仅剩唯一段落：删除项省略，转换项保留
 var singleMenu = buildMenuFor(createParagraphMenuRegistration(schema), fakeView("唯一段落"))
 assertEqual(!!findButtonByTitle(singleMenu, "删除段落"), false, "single-block doc omits 删除段落 item")
-assertEqual(!!findButtonByTitle(singleMenu, "表格"), true, "single-block doc keeps transform items")
+assertEqual(!!findButtonByTitle(singleMenu, "表格数据"), true, "single-block doc keeps transform items")
 
 // 标题面板不追加转换项，但含「转为正文」项（pilcrow icon）
 var headingMenu = buildMenuFor(createHeadingMenuRegistration(schema), fakeView("# 标题\n\n段落"))
-assertEqual(!!findButtonByTitle(headingMenu, "引用"), false, "heading panel has no 引用 item")
-assertEqual(!!findButtonByTitle(headingMenu, "表格"), false, "heading panel has no 表格 item")
+assertEqual(!!findButtonByTitle(headingMenu, "引用内容"), false, "heading panel has no 引用内容 item")
+assertEqual(!!findButtonByTitle(headingMenu, "表格数据"), false, "heading panel has no 表格数据 item")
 assertEqual(!!findButtonByIcon(headingMenu, SvgIcon.pilcrow), true, "heading panel has 正文 (pilcrow) item")
 
 // 段落面板主按钮图标：非空段落用段落符 pilcrow，删除项 icon 后显示可见文字「删除段落」
@@ -342,13 +342,13 @@ assertEqual(dividerCount, 2, "dividers before transform items and delete item")
 // ---------- 转换操作 ----------
 
 // 引用：段落包进 blockquote，内容保留
-assertEqual(runTransformItem("第一段\n\n第二段", "引用", true), "> 第一段\n\n第二段", "引用 wraps paragraph in blockquote")
+assertEqual(runTransformItem("第一段\n\n第二段", "引用内容", true), "> 第一段\n\n第二段", "引用内容 wraps paragraph in blockquote")
 
 // 列表：段落包进 bullet_list，内容保留
-assertEqual(runTransformItem("第一段\n\n第二段", "列表", true), "* 第一段\n\n第二段", "列表 wraps paragraph in bullet list")
+assertEqual(runTransformItem("第一段\n\n第二段", "有序列表", true), "* 第一段\n\n第二段", "有序列表 wraps paragraph in bullet list")
 
 // 表格：非空段落保留内容、表格插在其后
-assertEqualDeep(runTransformItem("第一段\n\n第二段", "表格", false), ["paragraph", "table", "paragraph"], "表格 keeps non-empty paragraph and inserts table after it")
+assertEqualDeep(runTransformItem("第一段\n\n第二段", "表格数据", false), ["paragraph", "table", "paragraph"], "表格数据 keeps non-empty paragraph and inserts table after it")
 
 // 表格：空段落原位替换为表格（markdown 解析不出空段落，直接构建 doc）
 var emptyParaDocType = schema.nodes.doc
@@ -358,9 +358,9 @@ var emptyParaDoc = emptyParaDocType.create(null, [
 ])
 var emptyParaView = fakeViewFromDoc(emptyParaDoc)
 var emptyParaMenu = buildMenuFor(createParagraphMenuRegistration(schema), emptyParaView)
-var emptyParaButton = findButtonByTitle(emptyParaMenu, "表格")
+var emptyParaButton = findButtonByTitle(emptyParaMenu, "表格数据")
 if (!emptyParaButton) {
-  throw new Error("表格 button not found")
+  throw new Error("表格数据 button not found")
 }
 clickButton(emptyParaButton)
 var emptyParaNames: string[] = []
@@ -372,7 +372,7 @@ assertEqualDeep(emptyParaNames, ["table", "paragraph"], "表格 replaces empty p
 // 表格后光标落首格（table > table_head > table_row > table_header 内容起点）
 var tableView = fakeView("第一段\n\n第二段")
 var tableMenu = buildMenuFor(createParagraphMenuRegistration(schema), tableView)
-clickButton(findButtonByTitle(tableMenu, "表格") as FakeElement)
+clickButton(findButtonByTitle(tableMenu, "表格数据") as FakeElement)
 var sel = tableView.state.selection
 assertEqual(sel instanceof TextSelection && sel.$from.depth >= 4, true, "cursor lands inside first table cell")
 

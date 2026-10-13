@@ -50,19 +50,14 @@
   align-items: center;
   justify-content: center;
   padding: 0;
-  /*border: 1px solid transparent;*/
-  /*border-bottom: 0;*/
-  /*border-radius: 3px;*/
   box-sizing: border-box;
   cursor: grab;
   pointer-events: auto;
-  /*visibility: hidden;*/
   opacity: 0;
   transition: opacity 0.12s ease-out, visibility 0.12s
 }
 .md-editor-table-handle:hover {
   opacity: 1;
-  /*border: 1px solid var(--border-color);*/
 }
 
 /* 光标驱动的显现：光标所在行（tableCoords 装饰类）→ 该行行把手、光标所在列
@@ -179,16 +174,6 @@
   height: 14px
 }
 
-/* grip 悬停（仅在已显现时可命中）：淡蓝高亮自身；单击选中保留（-selected）
-   同样淡蓝高亮（::after 高亮见下方按住态规则） */
-.md-editor-table-handle-col:hover,
-.md-editor-table-handle-row:hover,
-.md-editor-table-handle-selected {
-  /*background: var(--gray-bg-weak);*/
-}
-/*.md-editor-table-drop-target .md-editor-table-handle-icon {*/
-/*  color: #333;*/
-/*}*/
 .md-editor-table-handle-active {
   cursor: grabbing;
 }
@@ -236,14 +221,6 @@
 .md-editor-table-drop-target .md-editor-table-handle-icon {
   color: var(--fore-color);
 }
-/* 已显现的 grip 图标染蓝（光标驱动显现 / 按住 / 悬停三种可见状态） */
-/*.md-editor-table-active-row .md-editor-table-handle-row .md-editor-table-handle-icon,*/
-/*.md-editor-table-active-col .md-editor-table-handle-col .md-editor-table-handle-icon,*/
-/*.md-editor-table-handle-active .md-editor-table-handle-icon,*/
-/*.md-editor-table-handle-col:hover .md-editor-table-handle-icon,*/
-/*.md-editor-table-handle-row:hover .md-editor-table-handle-icon {*/
-/*  color: #2563eb*/
-/*}*/
 .md-editor-table-handle-icon svg {
   display: block
 }

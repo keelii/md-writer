@@ -8,6 +8,8 @@ export type SaveStatus = "saved" | "downloaded" | "cancelled" | "failed"
 export interface MarkdownFileSaver {
   save: (markdown: string, suggestedName?: string) => Promise<SaveStatus>
   getTargetName: () => string | null
+  // 拖入文件打开：接管拖入源文件句柄，后续 Meta+S 直接写回源文件；传空则清空目标
+  setTarget: (handle: any, name?: string) => void
   reset: () => void
 }
 

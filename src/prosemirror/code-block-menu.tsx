@@ -74,6 +74,7 @@ export function createCodeBlockMenuRegistration(schema: Schema): BlockMenuRegist
         return {
           label: option.label,
           active: option.value === currentWord,
+          group: "languages",
           run: function () {
             setCodeBlockLanguage(ctx, option.value)
           }

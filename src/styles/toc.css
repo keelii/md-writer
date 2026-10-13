@@ -6,26 +6,9 @@
   left: 50%;
   margin-left: calc(var(--max-content-width) / 2 + 10px);
   width: calc((100vw - var(--max-content-width)) / 2 - 20px);
-  /*border-top: 5px solid red;*/
   height: 100%;
-  /*overflow-y: auto;*/
-  /*border-left: 1px solid var(--border-color);*/
-
-  scrollbar-width: thin;
-  scrollbar-color: rgba(0,0,0,0.1) transparent;
-}
-.md-editor-toc::-webkit-scrollbar {
-  width: 6px;
 }
 
-.md-editor-toc::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.md-editor-toc::-webkit-scrollbar-thumb {
-  background: rgba(0,0,0,0.1);
-  border-radius: 3px;
-}
 .md-editor-toc-inner {
   top: 0;
   position: sticky;
@@ -47,10 +30,6 @@
 .md-editor-toc-list a {
   text-decoration: none;
 }
-.md-editor-toc-list li {
-  /*line-height: 1.5;*/
-}
-
 /* 折叠交互 */
 /* 可折叠项的展开/收起指示符：右箭头，展开（li 带 open 类）时旋转 90° 为下箭头；
    无子菜单的项不渲染指示符，无 :has/额外类依赖 */

@@ -26,6 +26,9 @@ export interface BlockOpMenuItem {
   divider?: boolean
   // 列表选择项的当前值（如当前语言），面板行高亮标识
   active?: boolean
+  // 分组名（如语言候选列表）：同组连续项包进限高滚动容器（超过最大高度
+  // 出滚动条），divider 或无 group 的项断开分组——组外操作（如删除）始终可见
+  group?: string
   run: () => void
 }
 
@@ -77,6 +80,25 @@ export function buildBlockOpMenuDom(menuClass: string, items: BlockOpMenuItem[],
   var toggleLabel = options && options.toggleLabel ? options.toggleLabel : ""
   var toggleIcon = options && options.toggleIcon ? options.toggleIcon : ""
   var toggleTitle = options && options.toggleTitle ? options.toggleTitle : (toggleLabel || "块操作")
+  // 面板行按钮（直接项与 group 内项共用）：mousedown 停止冒泡防止编辑器重绘
+  // 吞掉 click，click 执行动作并关闭面板
+  var buildItemButton = (item: BlockOpMenuItem) => (
+    <button
+      type="button"
+      className={"md-editor-block-op-menu-item" + (item.active ? " md-editor-block-op-menu-item-active" : "")}
+      title={item.label}
+      aria-label={item.label}
+      onMouseDown={stopEvent}
+      onClick={(event: MouseEvent) => {
+        stopEvent(event)
+        removeClass(host, "md-editor-block-menu-open")
+        item.run()
+      }}
+    >
+      {item.icon ? <span className="md-editor-block-op-menu-icon" innerHTML={item.icon} /> : null}
+      {(!item.icon || item.showLabel) ? item.label : null}
+    </button>
+  )
   var host = (
     <span className={"md-editor-block-menu md-editor-block-op-menu " + menuClass}>
       {toggleLabel ? (
@@ -110,26 +132,36 @@ export function buildBlockOpMenuDom(menuClass: string, items: BlockOpMenuItem[],
         />
       )}
       <div className="md-editor-block-op-menu-panel">
-        {items.map(function (item) {
-          return [
-            item.divider ? <div className="md-editor-block-op-menu-divider" /> : null,
-            <button
-              type="button"
-              className={"md-editor-block-op-menu-item" + (item.active ? " md-editor-block-op-menu-item-active" : "")}
-              title={item.label}
-              aria-label={item.label}
-              onMouseDown={stopEvent}
-              onClick={function (event: MouseEvent) {
-                stopEvent(event)
-                removeClass(host, "md-editor-block-menu-open")
-                item.run()
-              }}
-            >
-              {item.icon ? <span className="md-editor-block-op-menu-icon" innerHTML={item.icon} /> : null}
-              {(!item.icon || item.showLabel) ? item.label : null}
-            </button>
-          ]
-        })}
+        {(function () {
+          // 面板子元素：group 项包进限高滚动容器（分组在 divider/无 group 项处断开）
+          var children: (HTMLElement | null)[] = []
+          var groupItems: BlockOpMenuItem[] = []
+          var flushGroup = () => {
+            if (groupItems.length === 0) {
+              return
+            }
+            children.push(
+              <div className="md-editor-block-op-menu-group thin-scrollbar">
+                {groupItems.map((item) => buildItemButton(item))}
+              </div>
+            )
+            groupItems = []
+          }
+          items.forEach((item) => {
+            if (item.divider) {
+              flushGroup()
+              children.push(<div className="md-editor-block-op-menu-divider" />)
+            }
+            if (item.group) {
+              groupItems.push(item)
+            } else {
+              flushGroup()
+              children.push(buildItemButton(item))
+            }
+          })
+          flushGroup()
+          return children
+        })()}
       </div>
     </span>
   )

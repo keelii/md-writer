@@ -85,16 +85,6 @@
   align-items: center;
   margin-bottom: var(--line-height);
 }
-/*.theme-default .md-editor-horizontal-rule::after {*/
-/*  display: inline-block;*/
-/*  content: "§";*/
-/*  position: absolute;*/
-/*  left: 50%;*/
-/*  margin-left: -0.5em;*/
-/*  color: var(--border-color);*/
-/*  background: #fff;*/
-/*  padding: 0 5px;*/
-/*}*/
 .theme-default hr {
   width: 100%;
   border: none;
@@ -229,7 +219,6 @@
   padding: 0em 0.4em 0em;
 }
 .theme-default p code, .theme-default p kbd, .theme-default p samp, .theme-default p pre {
-  /*font-size: 0.9em;*/
   background: var(--gray-bg);
 }
 
@@ -266,8 +255,6 @@
 
 .theme-default pre {
   overflow: auto;
-  /*padding: var(--line-height);*/
-  /*background-color: var(--gray-bg);*/
 }
 
 .theme-default pre code {
@@ -368,9 +355,6 @@
   padding:  0 calc(var(--line-height) / 4);
   /* 每格画底：相邻横线不双线，末行自然形成底外框 */
   box-shadow: inset 0 -1px var(--border-color);
-}
-.theme-default thead tr:first-child th:last-child {
-  /*box-shadow: inset 0 1px var(--border-color), inset 0 -1px var(--border-color);*/
 }
 .theme-default thead tr:first-child td {
   box-shadow: inset 0 1px var(--border-color), inset 0 -1px var(--border-color);

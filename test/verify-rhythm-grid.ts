@@ -1,5 +1,5 @@
 // 韵律网格切换按钮验证（无头，fake DOM）：
-// 1. renderViewButtons 渲染 toggle_rhythm 按钮（lucide-grid-3x3 图标、aria-label）
+// 1. renderViewButtons 渲染 toggle_rhythm 按钮（grid-3x3 图标、aria-label）
 // 2. 点击 toggle_rhythm -> runtime.toggleRhythm 被调用（body 加/去 rhythm-grid 类）
 // 3. refresh 按钮态跟随 isRhythmVisible：selected + aria-pressed
 // 4. 二次点击还原
@@ -144,7 +144,7 @@ async function main() {
   }
   assert(
     "toggle_rhythm uses grid-3x3 icon",
-    rhythmBtn.innerHTML.indexOf("lucide-grid-3x3") !== -1,
+    rhythmBtn.innerHTML.indexOf('data-name="grid-3x3"') !== -1,
     rhythmBtn.innerHTML.slice(0, 80)
   )
   assert(
