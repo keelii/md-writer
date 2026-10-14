@@ -11,6 +11,7 @@
     "@codemirror/commands": "^6.9.0",
     "@codemirror/lang-markdown": "^6.3.3",
     "@codemirror/language": "^6.11.3",
+    "@codemirror/search": "^6.7.2",
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.38.6",
     "lowlight": "^3.3.0",

@@ -3,6 +3,7 @@ import { history, historyKeymap, defaultKeymap, indentWithTab } from "@codemirro
 import { defaultHighlightStyle, indentUnit, syntaxHighlighting } from "@codemirror/language"
 import { markdown } from "@codemirror/lang-markdown"
 import { drawSelection, EditorView, keymap } from "@codemirror/view"
+import { highlightSelectionMatches, searchKeymap } from "@codemirror/search"
 import { isFunction } from "../utils"
 
 export interface SourceEditorAdapter {
@@ -29,9 +30,11 @@ export function createCodeMirrorSourceEditor(
   var state = EditorState.create({
     doc: initialValue,
     extensions: [
+      EditorState.allowMultipleSelections.of(true),
       drawSelection(),
       history(),
-      keymap.of(defaultKeymap.concat(historyKeymap, indentWithTab)),
+      keymap.of(defaultKeymap.concat(historyKeymap, indentWithTab, searchKeymap)),
+      highlightSelectionMatches(),
       indentUnit.of("  "),
       markdown(),
       syntaxHighlighting(defaultHighlightStyle),
