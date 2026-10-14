@@ -144,7 +144,7 @@ async function main() {
   }
   assert(
     "toggle_rhythm uses grid-3x3 icon",
-    rhythmBtn.innerHTML.indexOf('data-name="grid-3x3"') !== -1,
+    rhythmBtn.innerHTML.indexOf("grid-3x3") !== -1,
     rhythmBtn.innerHTML.slice(0, 80)
   )
   assert(
@@ -183,8 +183,7 @@ async function main() {
   assert("after second refresh aria-pressed false", rhythmBtn.getAttribute("aria-pressed") === "false")
   assert("after second refresh not selected", !rhythmBtn.classSet.has("selected"))
 
-  // 5. prod 构建不渲染 toggle_rhythm，其余视图按钮不受影响：
-  //    模块级 APP_ENV 宏在加载时求值（esbuild --define 的运行时等价），
+  // 5. prod 构建同样渲染 toggle_rhythm（按钮已从 devOnly 转正，始终注册）：
   //    带查询串重新 import 以获得全新模块求值，模拟 prod 构建加载
   ;(globalThis as any).APP_ENV = "prod"
   const prodButtons = await import("../src/prosemirror/buttons?prod")
@@ -193,7 +192,7 @@ async function main() {
   var prodNames = prodRoot.children.map(function (el) {
     return String(el.getAttribute("data-md-editor-view"))
   })
-  assert("prod build hides toggle_rhythm", prodNames.indexOf("toggle_rhythm") === -1)
+  assert("prod build keeps toggle_rhythm", prodNames.indexOf("toggle_rhythm") !== -1)
   assert("prod build keeps toggle_source", prodNames.indexOf("toggle_source") !== -1)
   assert("prod build keeps show_help", prodNames.indexOf("show_help") !== -1)
 

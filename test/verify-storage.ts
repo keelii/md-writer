@@ -48,8 +48,8 @@ Object.defineProperty(globalThis, "navigator", { value: win.navigator, configura
   return {top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0}
 }
 // esbuild --define:APP_ENV 编译期宏：ts 直跑源码时以全局变量模拟 dev 构建
-// （4.x 用例需点击 devOnly 的 toggle_rhythm 验证状态写回；prod 下按钮不渲染
-//   已由 verify-rhythm-grid.ts 覆盖）
+// （4.x 用例点击 toggle_rhythm 验证状态写回；该按钮已非 devOnly，
+//   dev/prod 渲染一致性由 verify-rhythm-grid.ts 覆盖）
 ;(globalThis as any).APP_ENV = "dev"
 
 // 模块导入须在全局注入之后（NodeView / CM 在模块级引用 document 等）

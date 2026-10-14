@@ -6,8 +6,8 @@
 
 @media (max-width: 480px) {
   body {
-    --table-handler-size: 10px;
-    --table-handler-size-n: -10px;
+    --table-handler-size: 15px;
+    --table-handler-size-n: -15px;
   }
   /* 窄屏：编辑区左右保留 2em 边距，
      为块级悬浮菜单（-2rem 负 margin 轨道）留出可点空间，同时与工具栏内容对齐。

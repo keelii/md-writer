@@ -1,7 +1,8 @@
 // 表格行列把手（table handles）：参考 ckant/codemirror-markdown-tables 的交互，
 // 在 table NodeView 外包一层 shell。三类交互层（默认隐藏、不可命中）：
 // - 行列 grip（六点把手图标）：直接渲染进 td/th 里——列 grip 在首行各 th/td、
-//   行 grip 在各行首列 td 内，CSS 以 cell relative + 负偏移定位到表格外侧
+//   行 grip 在各 body 行首列 td 内（表头行不渲染，不可整行选中/拖动），CSS 以
+//   cell relative + 负偏移定位到表格外侧
 //   （列 grip 贴表格上缘、行 grip 贴表格左缘，各对齐所在列 / 行），不压住
 //   表格内容，也无需 JS 写几何。显现由光标驱动：tableCoords 装饰插件跟踪选区，
 //   给光标所在行的 tr / 所在列的各 th/td 写 active 装饰类，CSS 据此只显现
@@ -357,6 +358,9 @@ interface TableHandleDragState {
   tableRect: {left: number, top: number, right: number, bottom: number}
   // 被拖动行的行高 / 列的列宽（被跨越的行/列让位时整行/列平移这个尺寸）
   movingSize: number
+  // 按下的指针类型（"mouse" | "touch" | "pen"，缺省 ""）：触摸单击不
+  // view.focus()，避免移动端 contenteditable 聚焦弹出输入法
+  pointerType: string
 }
 
 export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
@@ -383,13 +387,18 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
   var removeDragListeners: (() => void) | null = null
   // 当前打开的列对齐下拉面板（挂在某个列菜单按钮下），null = 未打开
   var openAlignMenuEl: HTMLElement | null = null
+  // 最近一次把手 pointerdown 的指针类型（click 事件不携带，取按下时记录的值）：
+  // 触摸路径跳过 view.focus()，避免移动端 + 追加等操作弹出输入法
+  var lastPointerType = ""
 
   function getTablePos(): number {
     var pos = ctx.getPos()
     return isNumber(pos) ? pos : -1
   }
 
-  // 行元素（DOM 顺序 = 规范化后的 head 行 + body 行顺序）
+  // 行元素（DOM 顺序 = 规范化后的 head 行 + body 行顺序）。行 grip 只渲染进
+  // body（tbody）行：表头行不可整行选中/拖动；data-index 仍按全行序编号
+  // （表头行为 0），拖动/移动逻辑按全行序取行，无需改动
   function collectRowEls(): HTMLElement[] {
     var rows: HTMLElement[] = []
     var rowNodes = table.querySelectorAll("tr")
@@ -411,6 +420,18 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
       cells.push(cellNodes[i] as HTMLElement)
     }
     return cells
+  }
+
+  // body（非 thead）行数：行 grip 只渲染进 body 行
+  function countBodyRows(): number {
+    var rowEls = collectRowEls()
+    var count = 0
+    for (var i = 0; i < rowEls.length; i += 1) {
+      if (!rowEls[i].closest("thead")) {
+        count += 1
+      }
+    }
+    return count
   }
 
   function rectsFromElements(els: HTMLElement[]): Array<{left: number, top: number, right: number, bottom: number}> {
@@ -498,7 +519,7 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
   function applyHandleGeometry() {
     // 保底校验：PM 重绘 cell 内容（如撤销大段）可能把插在 td/th 里的 grip
     // 清掉且不触发 NodeView.update；每次几何重测前校验 grip 数量，缺失则重建
-    var expectedGrips = collectCellEls().length * 2 + collectRowEls().length
+    var expectedGrips = collectCellEls().length * 2 + countBodyRows()
     var actualGrips = table.querySelectorAll(".md-editor-table-handle-col, .md-editor-table-handle-col-menu, .md-editor-table-handle-row").length
     if (actualGrips !== expectedGrips) {
       rebuildHandles(true)
@@ -553,7 +574,7 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
   function rebuildHandles(force: boolean) {
     var rowEls = collectRowEls()
     var cellEls = collectCellEls()
-    var nextRowGrips = rowEls.length
+    var nextRowGrips = countBodyRows()
     var nextColGrips = cellEls.length
     if (!force && nextRowGrips === rowGripCount && nextColGrips === colGripCount) {
       scheduleMeasure()
@@ -576,9 +597,9 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
       }
     }
 
-    // grip 真渲染进 td/th：列 grip 插入首行对应 cell、行 grip 插入对应行首 cell。
-    // 定位交给 CSS（cell relative + 负偏移到表格外侧：行 grip 贴左缘、列 grip
-    // 贴上缘），无需 JS 写几何。
+    // grip 真渲染进 td/th：列 grip 插入首行对应 cell、行 grip 插入对应 body 行
+    // 首 cell。定位交给 CSS（cell relative + 负偏移到表格外侧：行 grip 贴左缘、
+    // 列 grip 贴上缘），无需 JS 写几何。
     // innerHTML 先于 appendChild：icon 的子树 mutation 在脱离文档时发生，
     // PM 的 MutationObserver 不会收到（只有 append 这一个 childList mutation，
     // 由 ignoreMutation 识别 handle 节点忽略）
@@ -602,7 +623,12 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
       alignBtn.innerHTML = '<span class="md-editor-table-handle-icon">' + SvgIcon.menu + "</span>"
       cellEls[alignCol].appendChild(alignBtn)
     }
-    for (var row = 0; row < rowGripCount && row < rowEls.length; row += 1) {
+    // 行 grip：只渲染进 body 行（thead 行跳过），data-index 仍写全行序
+    // （含表头行，表头行为 0），拖动/移动按全行序取行
+    for (var row = 0; row < rowEls.length; row += 1) {
+      if (rowEls[row].closest("thead")) {
+        continue
+      }
       var firstCell = rowEls[row].firstElementChild
       if (!(firstCell instanceof HTMLElement)) {
         continue
@@ -776,7 +802,7 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
         state.gripEl.classList.add("md-editor-table-handle-selected")
       }
       if (state.cellEl) {
-        focusCell(state.cellEl)
+        focusCell(state.cellEl, state.pointerType)
       }
       // 记下本次单击选中的行/列，供 Backspace 删除（set 内部先清旧记录）
       if (state.gripEl) {
@@ -804,9 +830,14 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
   }
 
   // 单击补偿：grip 命中的原生点击被把手拦截（pointerdown preventDefault），
-  // 未拖动松手时把光标落到 grip 所在单元格内（单元格开头）
-  function focusCell(cellEl: HTMLElement) {
-    view.focus()
+  // 未拖动松手时把光标落到 grip 所在单元格内（单元格开头）。触摸指针跳过
+  // view.focus()：pointerdown 已 preventDefault，未聚焦的编辑器不因落光标
+  // 重新获得焦点，移动端不会弹出输入法；光标（选区）仍照常落位，保持
+  // 「光标在表内」不变量（把手可见性、Backspace 删除选中行/列都依赖它）
+  function focusCell(cellEl: HTMLElement, pointerType: string) {
+    if (pointerType !== "touch") {
+      view.focus()
+    }
     try {
       var pos = view.posAtDOM(cellEl, 0)
       var sel = Selection.near(view.state.doc.resolve(pos), 1)
@@ -949,7 +980,8 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
       rowRects: rowRects,
       colRects: colRects,
       tableRect: tableRect,
-      movingSize: movingSize
+      movingSize: movingSize,
+      pointerType: event.pointerType
     }
     dragState = state
     // 新一次按下即开始新交互：清掉上一次单击保留的高亮方向类与 grip 选中态
@@ -987,6 +1019,7 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
     // 阻止编辑器抢焦点/落光标；把手交互不改变选区
     event.preventDefault()
     event.stopPropagation()
+    lastPointerType = event.pointerType
     if (grip.classList.contains("md-editor-table-append-row") || grip.classList.contains("md-editor-table-append-col")) {
       // + 按钮只响应 click，pointerdown 不开拖动
       return
@@ -1128,7 +1161,11 @@ export function createTableHandlesNodeView(node: PMNode, ctx: NodeViewContext) {
     }
     var mutation = kind === "row" ? mutateTableAddRow : mutateTableAddColumn
     applyTableMutationWithContext(view.state, view.dispatch, context, mutation)
-    view.focus()
+    // 触摸指针不聚焦：追加后光标已随默认行为留在表内可继续编辑，跳过
+    // view.focus() 避免移动端弹出输入法（桌面鼠标行为不变）
+    if (lastPointerType !== "touch") {
+      view.focus()
+    }
   }
 
   scheduleRebuild()

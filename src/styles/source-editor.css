@@ -1,0 +1,15 @@
+.ͼ1 .cm-panel.cm-search {
+    font-size: 16px;
+    padding: 10px;
+}
+.ͼ1 .cm-textfield,
+.ͼ1 .cm-button,
+.ͼ1 .cm-panel.cm-search label {
+    font-size: 1em;
+}
+.ͼ1 .cm-panel.cm-search input[type=checkbox] {
+    vertical-align: middle;
+}
+.ͼ1 .cm-panel.cm-search [name=close] {
+    line-height: 1;
+}

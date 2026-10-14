@@ -2,7 +2,7 @@
 // 复刻浏览器事件链（dispatchEvent 冒泡到 overlay/document 监听），
 // 验证 table-handles.ts 的交互：
 // 1. NodeView 包壳渲染：shell > table + overlay；行列 grip 渲染在 td/th 里
-//    （列 grip=首行各格、行 grip=各行首格，CSS 负偏移到表格外侧），+ 按钮留在 overlay
+//    （列 grip=首行各格、行 grip=各 body 行首格且不渲染进 thead，CSS 负偏移到表格外侧），+ 按钮留在 overlay
 // 2. 光标驱动显隐：tableCoords 装饰插件按选区给光标所在行 tr / 所在列各 th/td
 //    写 md-editor-table-active-row / -col 装饰类（CSS 据此显现把手），
 //    光标移出表格后类清空；装饰类更新不重建 cell DOM（grip 存活）
@@ -12,8 +12,12 @@
 //    列移动到最右；三 slot 中点法边界（未过相邻边界中点不换列、越过即换）
 // 5. 单击 grip（未拖出阈值）：不改表格结构，光标补偿落到对应单元格
 // 6. 单击末尾 + 按钮：追加一行 / 一列；+ 按钮 pointerdown 不开启拖动
-// 7. 单击选中行/列后 Backspace：删除选中的整行/整列（单行表删行 / 单列表删列
-//    即整表删除）；清态与光标移出表后按普通删除处理
+// 7. 单击选中行/列后 Backspace：删除选中的整行/整列（单列表删列即整表删除；
+//    表头行无行 grip，不可整行选中，单头表无删行路径）；清态与光标移出表后
+//    按普通删除处理
+// 8. 触摸指针（pointerType=touch）单击 grip / + 追加按钮：不调用 view.focus()
+//    （移动端 contenteditable 不聚焦、不弹输入法），但光标补偿与选中态照常落位
+//    （把手可见性与 Backspace 删除依赖“光标在表内”不变量）；鼠标指针行为不变
 // 运行：npx --yes tsx --import ./test/css-shim.mjs test/verify-table-handles.ts
 // （先 npm install --no-save jsdom；跑完可 npm install --no-save 移除）
 
@@ -109,15 +113,27 @@ function readTableRows(doc: PMNode): string[][] {
   return rows
 }
 
-// jsdom 无 PointerEvent，用 MouseEvent 携带 pointer* 事件类型（只读 clientX/clientY/target）
-function pointerEvent(type: string, opts: {x: number, y: number, bubbles?: boolean}) {
-  return new win.MouseEvent(type, {bubbles: opts.bubbles !== false, cancelable: true, clientX: opts.x, clientY: opts.y})
+// jsdom 无 PointerEvent，用 MouseEvent 携带 pointer* 事件类型（只读 clientX/clientY/target）；
+// pointerType 用实例属性注入（触摸指针用例：focusCell / runAppendMutation 据此跳过 view.focus()）
+function pointerEvent(type: string, opts: {x: number, y: number, bubbles?: boolean, pointerType?: string}) {
+  var evt = new win.MouseEvent(type, {bubbles: opts.bubbles !== false, cancelable: true, clientX: opts.x, clientY: opts.y})
+  if (opts.pointerType) {
+    Object.defineProperty(evt, "pointerType", {value: opts.pointerType})
+  }
+  return evt
 }
 
 function dragHandle(el: HTMLElement, from: {x: number, y: number}, to: {x: number, y: number}) {
   el.dispatchEvent(pointerEvent("pointerdown", {x: from.x, y: from.y}))
   win.document.dispatchEvent(pointerEvent("pointermove", {x: to.x, y: to.y}))
   win.document.dispatchEvent(pointerEvent("pointerup", {x: to.x, y: to.y}))
+}
+
+// 指定 pointerType 的按下-松手（位移未越 4px 阈值 = 单击），测触摸指针分支
+function dragHandleTyped(el: HTMLElement, from: {x: number, y: number}, to: {x: number, y: number}, pointerType: string) {
+  el.dispatchEvent(pointerEvent("pointerdown", {x: from.x, y: from.y, pointerType: pointerType}))
+  win.document.dispatchEvent(pointerEvent("pointermove", {x: to.x, y: to.y, pointerType: pointerType}))
+  win.document.dispatchEvent(pointerEvent("pointerup", {x: to.x, y: to.y, pointerType: pointerType}))
 }
 
 function clickEl(el: HTMLElement, pos: {x: number, y: number}) {
@@ -222,11 +238,11 @@ check("shell 渲染", !!shell, true)
 check("shell 内含 table", !!(shell && (shell as HTMLElement).querySelector("table")), true)
 check("overlay 渲染", !!overlayEl(), true)
 check("overlay 不可编辑", overlayEl().getAttribute("contenteditable"), "false")
-check("行 grip 数 = 4（head+3 body）", shellEl().querySelectorAll(".md-editor-table-handle-row").length, 4)
+check("行 grip 数 = 3（仅 3 个 body 行）", shellEl().querySelectorAll(".md-editor-table-handle-row").length, 3)
 check("列 grip 数 = 3", shellEl().querySelectorAll(".md-editor-table-handle-col").length, 3)
 check("追加行按钮存在", !!overlayEl().querySelector(".md-editor-table-append-row"), true)
 check("追加列按钮存在", !!overlayEl().querySelector(".md-editor-table-append-col"), true)
-// grip 真渲染进 td/th：列 grip 挂首行各 th/td、行 grip 挂各行首列 td
+// grip 真渲染进 td/th：列 grip 挂首行各 th/td、行 grip 挂各 body 行首列 td（thead 内无行 grip）
 check("thead 带 table-head 类", !!shellEl().querySelector("thead.table-head"), true)
 check("tbody 带 table-body 类", !!shellEl().querySelector("tbody.table-body"), true)
 check("tr 带 table-row 类", shellEl().querySelectorAll("tr.table-row").length > 0, true)
@@ -252,8 +268,9 @@ check("列 grip(0) 在首行首格 th 内", grip("col", 0).parentElement && (gri
 check("th 也带 table-cell 类", grip("col", 0).parentElement && (grip("col", 0).parentElement as HTMLElement).classList.contains("table-cell"), true)
 check("body 首格 td 带 table-cell 类", grip("row", 1).parentElement && (grip("row", 1).parentElement as HTMLElement).classList.contains("table-cell"), true)
 check("列 grip(2) 在首行末格 th 内", grip("col", 2).parentElement && (grip("col", 2).parentElement as HTMLElement).tagName, "TH")
-check("行 grip(0) 在表头行首格 th 内", grip("row", 0).parentElement && (grip("row", 0).parentElement as HTMLElement).tagName, "TH")
+check("thead 内无行 grip（表头行不可整行选中）", shellEl().querySelectorAll("thead .md-editor-table-handle-row").length, 0)
 check("行 grip(1) 在 body 行首格 td 内", grip("row", 1).parentElement && (grip("row", 1).parentElement as HTMLElement).tagName, "TD")
+check("行 grip(2) 在 body 行首格 td 内", grip("row", 2).parentElement && (grip("row", 2).parentElement as HTMLElement).tagName, "TD")
 var allTrs = shellEl().querySelectorAll("tr")
 check("行 grip(1) 挂在对应行上", grip("row", 1).parentElement && (grip("row", 1).parentElement as HTMLElement).parentElement === allTrs[1], true)
 check("行 grip(2) 挂在对应行上", grip("row", 2).parentElement && (grip("row", 2).parentElement as HTMLElement).parentElement === allTrs[2], true)
@@ -293,14 +310,14 @@ for (var ai = 0; ai < activeColCells.length; ai += 1) {
 check("active 列格都在第 2 列（data-col=1）", activeColOk, true)
 // 装饰类更新必须走 cell NodeView 原地补丁（updateOuterDeco），不重建 cell DOM：
 // 否则渲染进 td/th 的 grip 会被清掉
-check("装饰更新后行 grip 仍 = 4", shellEl().querySelectorAll(".md-editor-table-handle-row").length, 4)
+check("装饰更新后行 grip 仍 = 3", shellEl().querySelectorAll(".md-editor-table-handle-row").length, 3)
 check("装饰更新后列 grip 仍 = 3", shellEl().querySelectorAll(".md-editor-table-handle-col").length, 3)
 // 光标移出表格（尾部段落）：active 类清空 → 把手全部隐藏
 // （content.size - 1 = 尾段落内末位——直接用 content.size 会落在 doc 层报错）
 view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, view.state.doc.content.size - 1)))
 check("光标移出表后 active 行清空", shellEl().querySelectorAll("tr.md-editor-table-active-row").length, 0)
 check("光标移出表后 active 列清空", shellEl().querySelectorAll(".table-cell.md-editor-table-active-col").length, 0)
-check("移出表后 grip 仍 = 4 + 3", shellEl().querySelectorAll(".md-editor-table-handle-row").length + shellEl().querySelectorAll(".md-editor-table-handle-col").length, 7)
+check("移出表后 grip 仍 = 3 + 3", shellEl().querySelectorAll(".md-editor-table-handle-row").length + shellEl().querySelectorAll(".md-editor-table-handle-col").length, 6)
 
 // ---- 3. 拖动行 grip：body 首行 a 移到表尾（dy=70：行高 40、中心 60+70=130，
 // 连续越过 mid(1,2)=80 与 mid(2,3)=120 两道边界中点 → 连续跨越到末行）----
@@ -332,7 +349,7 @@ check("拖动中 H 行不动", cellAt(0, 1).style.transform, "")
 // cell NodeView 忽略，否则 PM 重读重绘会破坏 doc / 清掉 grip
 await new Promise(function (resolve) { setTimeout(resolve, 10) })
 check("拖动中 PM 不因直写 style 重读", readTableRows(view.state.doc), rowsBeforeDrag)
-check("等待后行 grip 仍存活", shellEl().querySelectorAll(".md-editor-table-handle-row").length, 4)
+check("等待后行 grip 仍存活", shellEl().querySelectorAll(".md-editor-table-handle-row").length, 3)
 win.document.dispatchEvent(pointerEvent("pointerup", {x: 0, y: 70}))
 check("拖动行 1 → 末尾", readTableRows(view.state.doc), [
   ["H1", "H2", "H3"],
@@ -397,7 +414,7 @@ check("表外按下后 -highlight 类清除", shellEl().className.indexOf("highl
 check("表外按下后 -selected 清除", shellEl().querySelectorAll(".md-editor-table-handle-selected").length, 0)
 // 图标圆片：grip 内层 span（保证把手在任意单元格背景上可见）
 check("grip 图标圆片结构", !!(grip("col", 0).querySelector(".md-editor-table-handle-icon") as HTMLElement), true)
-check("行 grip 图标圆片结构", !!(grip("row", 0).querySelector(".md-editor-table-handle-icon") as HTMLElement), true)
+check("行 grip 图标圆片结构", !!(grip("row", 1).querySelector(".md-editor-table-handle-icon") as HTMLElement), true)
 
 // ---- 5. 拖动列 grip：首列移到最右（dx=160：列宽 100、中心 50+160=210，
 // 连续越过 mid(0,1)=100 与 mid(1,2)=200 两道边界中点 → 连续跨越到末列）----
@@ -444,7 +461,7 @@ clickEl(overlayEl().querySelector(".md-editor-table-append-row") as HTMLElement,
 await tick()
 check("追加一行后行数 = 5", readTableRows(view.state.doc).length, 5)
 check("新行在表尾且为空行", readTableRows(view.state.doc)[4], ["", "", ""])
-check("NodeView 重建行 grip 数 = 5", shellEl().querySelectorAll(".md-editor-table-handle-row").length, 5)
+check("NodeView 重建行 grip 数 = 4", shellEl().querySelectorAll(".md-editor-table-handle-row").length, 4)
 
 // ---- 7. + 按钮 pointerdown 不开拖动（拖拽后不应移动行）----
 dragHandle(overlayEl().querySelector(".md-editor-table-append-row") as HTMLElement, {x: 0, y: 0}, {x: 0, y: 40})
@@ -595,14 +612,87 @@ check("单列表选中列 Backspace 被处理", bsPressKey("Backspace"), true)
 check("单列表 Backspace 整表删除", readTableRows(bsView.state.doc), [])
 check("单列表整表删除后仅剩尾段", bsView.state.doc.textContent, "tail text")
 
-// 单行表（仅表头一行）：选中行 grip(0) → Backspace 整表删除
+// 单行表（仅表头一行）：thead 无行 grip，无整行选中/删除路径
 bsView.updateState(EditorState.create({doc: parser.parse(["| A | B |", "| --- | --- |", "", "tail text"].join("\n")), schema: schema, plugins: bsPlugins}))
 await tick()
-dragHandle(bsGrip("row", 0), {x: 10, y: 10}, {x: 11, y: 11})
-check("单行表选中行 Backspace 被处理", bsPressKey("Backspace"), true)
-check("单行表 Backspace 整表删除", readTableRows(bsView.state.doc), [])
+check("单行表行 grip 数 = 0（thead 内无行 grip）", bsShell().querySelectorAll(".md-editor-table-handle-row").length, 0)
 
 bsView.destroy()
+
+// ---- 9.6 触摸指针（pointerType=touch）：单击 grip / + 追加按钮不得调用
+// view.focus()（移动端 contenteditable 聚焦会弹输入法），但光标补偿与选中态
+// 照常落位（把手可见性与 Backspace 删除依赖“光标在表内”不变量）；鼠标指针
+// （pointerType 缺失）行为不变，仍聚焦。focus 检测用 dom.focus 计数桩
+// （jsdom 无真实焦点语义，PM 的 view.focus() 即调 this.dom.focus()）----
+var tvHost = win.document.createElement("div")
+win.document.body.appendChild(tvHost)
+var tvView = new EditorView(tvHost, {
+  state: EditorState.create({doc: parser.parse(md), schema: schema, plugins: [createTableCoordsPlugin()]}),
+  nodeViews: {
+    table: function (node: PMNode, view: EditorView, getPos: () => number | undefined): any {
+      return createTableHandlesNodeView(node, {opts: {} as any, view: view, getPos: function () { return typeof getPos() === "number" ? getPos() as number : 0 }})
+    },
+    table_cell: function (node: PMNode): any {
+      return createHandleAwareCellNodeView(node)
+    },
+    table_header: function (node: PMNode): any {
+      return createHandleAwareCellNodeView(node)
+    }
+  } as any
+})
+await tick()
+var tvFocusCount = 0
+;(tvView.dom as any).focus = function () { tvFocusCount += 1 }
+function tvGrip(kind: "row" | "col", index: number): HTMLElement {
+  return tvView.dom.querySelector(".md-editor-table-handle-" + kind + "[data-index=\"" + index + "\"]") as HTMLElement
+}
+function tvShell(): HTMLElement {
+  return tvView.dom.querySelector(".md-editor-table-handles-shell") as HTMLElement
+}
+// 找指定文本的单元格文档范围（校验光标补偿是否落进对应单元格）
+function tvCellRange(text: string) {
+  var found: {pos: number, end: number} | null = null
+  tvView.state.doc.descendants(function (node: PMNode, pos: number) {
+    if (!found && (node.type.name === "table_cell" || node.type.name === "table_header") && node.textContent === text) {
+      found = {pos: pos, end: pos + node.nodeSize}
+    }
+    return !found
+  })
+  return found
+}
+
+// 鼠标指针（MouseEvent 无 pointerType 属性，读到 undefined）：单击行 grip(1)
+// （a 行首格）仍聚焦编辑器 —— 同时校验计数桩生效，触摸断言不是空转
+dragHandle(tvGrip("row", 1), {x: 0, y: 40}, {x: 1, y: 41})
+check("鼠标单击行 grip 聚焦编辑器（桌面行为不变）", tvFocusCount, 1)
+var tvA1 = tvCellRange("a1")
+check("鼠标单击行 grip 光标落 a1", !!tvA1 && tvView.state.selection.from > tvA1.pos && tvView.state.selection.from < tvA1.end, true)
+
+// 触摸指针单击列 grip(2)（H3 列）：不聚焦，但光标仍补偿落表头单元格、
+// 选中态照常（-selected 供 Backspace 删除用）
+var tvFocusBeforeTouch = tvFocusCount
+dragHandleTyped(tvGrip("col", 2), {x: 200, y: 10}, {x: 201, y: 11}, "touch")
+check("触摸单击 grip 不聚焦编辑器", tvFocusCount, tvFocusBeforeTouch)
+var tvH3 = tvCellRange("H3")
+check("触摸单击列 grip 光标仍落 H3（表内不变量保留）", !!tvH3 && tvView.state.selection.from > tvH3.pos && tvView.state.selection.from < tvH3.end, true)
+check("触摸单击后 grip 带 -selected", tvGrip("col", 2).classList.contains("md-editor-table-handle-selected"), true)
+
+// 触摸指针单击 + 追加列按钮（click 事件不携带 pointerType，取 pointerdown
+// 记录的 lastPointerType）：追加成功且不聚焦
+var tvColsBefore = readTableRows(tvView.state.doc)[0].length
+var tvAppendCol = tvShell().querySelector(".md-editor-table-append-col") as HTMLElement
+tvAppendCol.dispatchEvent(pointerEvent("pointerdown", {x: 300, y: 200, pointerType: "touch"}))
+clickEl(tvAppendCol, {x: 300, y: 200})
+check("触摸 + 追加一列成功", readTableRows(tvView.state.doc)[0].length, tvColsBefore + 1)
+check("触摸 + 追加不聚焦编辑器", tvFocusCount, tvFocusBeforeTouch)
+
+// 对照：鼠标指针 + 追加行按钮仍聚焦（追加后手动追加光标落表）
+var tvAppendRow = tvShell().querySelector(".md-editor-table-append-row") as HTMLElement
+tvAppendRow.dispatchEvent(pointerEvent("pointerdown", {x: 0, y: 400}))
+clickEl(tvAppendRow, {x: 0, y: 400})
+check("鼠标 + 追加行后聚焦编辑器（桌面行为不变）", tvFocusCount > tvFocusBeforeTouch, true)
+
+tvView.destroy()
 
 // ---- 10. 单元格删除守卫：Backspace / Delete 任何情况下不得删掉单个 cell 或
 // 合并相邻 cell（keymap 单测：fake view 依序喂给各插件的 handleKeyDown）----

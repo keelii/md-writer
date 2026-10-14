@@ -133,22 +133,16 @@ const viewButtons: Array<ViewButtonConfig> = [
     svg: SvgIcon.squareText
   },
   {
+    name: "切换韵律网格",
+    code: "toggle_rhythm",
+    svg: SvgIcon.grid3x3
+  },
+  {
     name: "快捷键帮助",
     code: "show_help",
     svg: SvgIcon.circleHelp
   }
 ]
-
-// devOnly 调试按钮：仅在 dev 构建（esbuild --define:APP_ENV="dev"）动态注册，固定倒数第 2 位。
-// 宏直接内联在 if 条件中（不落中间变量），也不与运行时字段/过滤逻辑耦合——
-// prod 构建下条件为常量 false，整个语句块编译期即被消除，按钮定义完全不进产物。
-if (APP_ENV === "dev") {
-  viewButtons.splice(viewButtons.length - 1, 0, {
-    name: "切换韵律网格",
-    code: "toggle_rhythm",
-    svg: SvgIcon.grid3x3
-  })
-}
 
 export function renderCommandButtons(root: Element) {
   var keys = Object.keys(commandButtons)
@@ -428,7 +422,7 @@ export function bindViewButtons(
 }
 
 export function renderViewButtons(root: Element) {
-  // toggle_rhythm 由模块顶部 APP_ENV 宏 if 注册，prod 构建下不在数组中
+  // toggle_rhythm 固定倒数第 2 位（dev/prod 均渲染）
   var buttons = viewButtons.map(function (item) {
     var title = item.shortcut ? item.name + " (" + item.shortcut + ")" : item.name
     return (

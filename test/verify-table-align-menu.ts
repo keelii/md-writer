@@ -174,7 +174,7 @@ check("菜单按钮(2) 在首行末格 th 内", menuBtn(2).parentElement && (men
 check("菜单按钮带 title", menuBtn(0).getAttribute("title"), "列对齐")
 check("菜单按钮带图标圆片", !!menuBtn(1).querySelector(".md-editor-table-handle-icon"), true)
 check("菜单按钮类不与列 grip 选择器冲突", shellEl().querySelectorAll(".md-editor-table-handle-col").length, 3)
-check("行 grip 不受影响", shellEl().querySelectorAll(".md-editor-table-handle-row").length, 4)
+check("行 grip 不受影响", shellEl().querySelectorAll(".md-editor-table-handle-row").length, 3)
 var colGrip1 = shellEl().querySelector('.md-editor-table-handle-col[data-index="1"]') as HTMLElement
 check("按钮(1) 与列 grip(1) 同格", menuBtn(1).parentElement === colGrip1.parentElement, true)
 
@@ -200,7 +200,7 @@ check("初始无对齐时高亮默认项", activeAlign(), "")
 // ignoreMutation 识别忽略，否则 PM 重读会把菜单项当单元格内容破坏表格
 await new Promise(function (resolve) { setTimeout(resolve, 10) })
 check("面板插入后 PM 不重读（内容不变）", readTableRows(view.state.doc), initialRows)
-check("面板打开后 grip 存活", shellEl().querySelectorAll(".md-editor-table-handle-col").length + shellEl().querySelectorAll(".md-editor-table-handle-row").length, 7)
+check("面板打开后 grip 存活", shellEl().querySelectorAll(".md-editor-table-handle-col").length + shellEl().querySelectorAll(".md-editor-table-handle-row").length, 6)
 
 // ---- 3. 点选「居中」：整列对齐 + 分隔行序列化 ----
 clickEl(alignItem("center"))
@@ -263,7 +263,7 @@ check("拖动尝试后表格结构不变", readTableRows(view.state.doc), rowsBe
 check("最终表格内容不变", readTableRows(view.state.doc), initialRows)
 check("最终菜单按钮数 = 3", shellEl().querySelectorAll(".md-editor-table-handle-col-menu").length, 3)
 check("最终列 grip 数 = 3", shellEl().querySelectorAll(".md-editor-table-handle-col").length, 3)
-check("最终行 grip 数 = 4", shellEl().querySelectorAll(".md-editor-table-handle-row").length, 4)
+check("最终行 grip 数 = 3", shellEl().querySelectorAll(".md-editor-table-handle-row").length, 3)
 check("最终无面板残留", shellEl().querySelectorAll(".md-editor-table-align-menu").length, 0)
 
 view.destroy()

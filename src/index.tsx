@@ -39,6 +39,7 @@ import "./styles/dialog.css"
 import "./styles/themes/default.css"
 import "./styles/toc.css"
 import "./styles/print.css"
+import "./styles/source-editor.css"
 import "./styles/small-screen.css"
 
 export function init(options?: MDWriterInitOptions): MDWriterInstance {
@@ -251,6 +252,8 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
   var sourceModePending = false
   var sourceEditor: SourceEditorAdapter | null = null
   var sourceEditorReady: Promise<SourceEditorAdapter> | null = null
+  // 进入源码模式时强制关闭 TOC，退出后恢复到进入前的可见状态
+  var sourceModeSavedTocVisible = false
 
   function isSourceModeActive() {
     return sourceHost.style.display !== "none"
@@ -312,6 +315,17 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
       editor.refresh()
       editor.focus()
       refreshControls()
+      // 源码模式下 TOC 不可用（按钮已 disabled），进入时强制关闭并记住原状态
+      if (tocVisible) {
+        sourceModeSavedTocVisible = true
+        tocVisible = false
+        if (tocRootElement) {
+          setElementVisible(tocRootElement, false)
+        }
+      }
+      // enterSourceMode 异步完成后 isSourceModeActive() 才为 true，此处补一次
+      // 状态落盘，避免 toggleSourceMode 同步调用的 persistViewState 存到旧值
+      persistViewState()
     }).catch(function (error) {
       sourceModePending = false
       console.warn("init source editor failed", error)
@@ -330,6 +344,14 @@ export function init(options?: MDWriterInitOptions): MDWriterInstance {
     } finally {
       setElementVisible(sourceHost, false)
       setElementVisible(view.dom, true)
+    }
+    // 退出源码模式：恢复进入前可见的 TOC
+    if (sourceModeSavedTocVisible) {
+      sourceModeSavedTocVisible = false
+      tocVisible = true
+      if (tocRootElement) {
+        setElementVisible(tocRootElement, true)
+      }
     }
     view.focus()
     refreshControls()

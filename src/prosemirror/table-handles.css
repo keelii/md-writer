@@ -1,5 +1,6 @@
 /* 表格行列把手（table-handles.ts）：table NodeView 外包 shell，
-   - grip 直接渲染进 td/th 里（列 grip=首行各 th/td，行 grip=各行首列 td）：
+   - grip 直接渲染进 td/th 里（列 grip=首行各 th/td，行 grip=各 body 行首列
+      td，表头行不渲染）：
      cell 设 position:relative，grip 绝对定位 + 负偏移移到表格左缘 / 上缘
      外侧（行 grip 对齐所在行、列 grip 对齐所在列），不压住表格内容，也无需
      JS 写几何；
@@ -53,6 +54,11 @@
   box-sizing: border-box;
   cursor: grab;
   pointer-events: auto;
+  /* 移动端：把手不响应原生手势（保证 pointermove 不被滚动手势接管触发
+     pointercancel），不选中文本/弹长按 callout（拖动把手的常见干扰源） */
+  touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
   opacity: 0;
   transition: opacity 0.12s ease-out, visibility 0.12s
 }
@@ -323,6 +329,13 @@ th.md-editor-table-drop-target::after {
 }
 .md-editor-table-handles-dragging th.md-editor-table-drop-target {
   background-color: var(--gray-bg)
+}
+/* 拖动全程禁选表格文本：指针扫过 td/th 文本时移动端会触发原生选择
+   （iOS 放大镜/长按 callout、Android 选择手柄），桌面双击也可能选词；
+   shell 带 -dragging 类期间一并关掉，松手后随类清除自然恢复 */
+.md-editor-table-handles-dragging {
+  user-select: none;
+  -webkit-touch-callout: none
 }
 
 /* 被拖动行/列 td 的防穿透底色：接近 drop-target 高亮观感的半透明白
