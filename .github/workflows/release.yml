@@ -44,14 +44,61 @@ jobs:
 
           tar -czf "md-writer-${TAG}.tar.gz" -C release .
 
-      - name: Create GitHub Release and upload
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG="${GITHUB_REF_NAME}"
-          if [[ ! "$TAG" =~ ^v ]]; then TAG="v${GITHUB_RUN_NUMBER}"; fi
 
-          gh release create "${TAG}" "md-writer-${TAG}.tar.gz" \
-            --title "md-writer ${TAG}" \
-            --notes "自动构建：commit ${GITHUB_SHA}。包含 index.html、dist 构建产物与 static 静态资源。" \
-            --latest
+      - name: Create Forgejo Release and upload
+        env:
+          FORGEJO_URL: ${{ env.FORGEJO_SERVER_URL }}
+          FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          TAG="${GITHUB_REF_NAME}"
+          if [[ ! "$TAG" =~ ^v ]]; then
+            TAG="v${GITHUB_RUN_NUMBER}"
+          fi
+
+          API_URL="${FORGEJO_URL%/}/api/v1/repos/${GITHUB_REPOSITORY}"
+
+          # 创建 Release
+          export TAG
+          RESPONSE=$(mktemp)
+          trap 'rm -f "$RESPONSE"' EXIT
+
+          HTTP_CODE=$(curl -sS -o "$RESPONSE" -w '%{http_code}' \
+            -X POST "${API_URL}/releases" \
+            -H "Authorization: token ${FORGEJO_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$(node -e '
+              console.log(JSON.stringify({
+                tag_name: process.env.TAG,
+                target_commitish: process.env.GITHUB_SHA,
+                name: "md-writer " + process.env.TAG,
+                body: "自动构建：commit " + process.env.GITHUB_SHA + "。包含 index.html、dist 构建产物与 static 静态资源。",
+                draft: false,
+                prerelease: false
+              }))
+            ')")
+
+          if [[ "$HTTP_CODE" != "201" ]]; then
+            echo "创建 Release 失败，HTTP $HTTP_CODE"
+            cat "$RESPONSE"
+            exit 1
+          fi
+
+          RELEASE_ID=$(node -e '
+            const fs = require("node:fs");
+            console.log(JSON.parse(fs.readFileSync(process.argv[1], "utf8")).id);
+          ' "$RESPONSE")
+
+          echo "Release 创建成功：${TAG} (ID: ${RELEASE_ID})"
+
+          # 上传 tar.gz 产物
+          ASSET="md-writer-${TAG}.tar.gz"
+
+          curl -fsS \
+            -X POST "${API_URL}/releases/${RELEASE_ID}/assets?name=${ASSET}" \
+            -H "Authorization: token ${FORGEJO_TOKEN}" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary "@${ASSET}"
+
+          echo "Release 产物上传成功：${ASSET}"
