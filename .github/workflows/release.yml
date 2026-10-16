@@ -36,13 +36,13 @@ jobs:
         run: |
           TAG="${GITHUB_REF_NAME}"
           if [[ ! "$TAG" =~ ^v ]]; then TAG="v${GITHUB_RUN_NUMBER}"; fi
+
           mkdir -p release
           cp index.html release/
           cp -r dist release/dist
           cp -r static release/static
-          cd release
-          zip -r "../md-writer-${TAG}.zip" .
-          cd ..
+
+          tar -czf "md-writer-${TAG}.tar.gz" -C release .
 
       - name: Create GitHub Release and upload
         env:
@@ -50,7 +50,8 @@ jobs:
         run: |
           TAG="${GITHUB_REF_NAME}"
           if [[ ! "$TAG" =~ ^v ]]; then TAG="v${GITHUB_RUN_NUMBER}"; fi
-          gh release create "${TAG}" "md-writer-${TAG}.zip" \
+
+          gh release create "${TAG}" "md-writer-${TAG}.tar.gz" \
             --title "md-writer ${TAG}" \
             --notes "自动构建：commit ${GITHUB_SHA}。包含 index.html、dist 构建产物与 static 静态资源。" \
             --latest
