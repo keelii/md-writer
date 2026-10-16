@@ -47,7 +47,7 @@ jobs:
 
       - name: Create Forgejo Release and upload
         env:
-          FORGEJO_URL: ${{ env.FORGEJO_SERVER_URL }}
+          FORGEJO_URL: http://kmc6814.glddns.com:33000
           FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
         run: |
           set -euo pipefail
