@@ -1,3 +1,6 @@
+.cm-panel.cm-search label {
+  user-select: none;
+}
 .ͼ1 .cm-panel.cm-search {
     font-size: 16px;
     padding: 10px;
